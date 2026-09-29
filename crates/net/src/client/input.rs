@@ -48,6 +48,21 @@ pub struct ClientActionInput {
     pub cl_yawspeed: f32,
     pub now_msec: i32,
     pub frame_msec: u32,
+
+    /// Forward and right.
+    pub pad_move: [f32; 2],
+    /// Right and up.
+    pub pad_look: [f32; 2],
+    pub pad_deflection: f32,
+    pub pad_sensitivity: f32,
+    pub pad_ads_sensitivity: f32,
+    pub pad_turn_rate: [f32; 2],
+    /// Pitch and yaw, degrees.
+    pub pad_look_delta: [f32; 2],
+    pub pad_aim_assist: u8,
+    pub pad_lockon: Option<u64>,
+    pub pad_autoaim: Option<(u64, f32)>,
+    pub pad_was_ads: bool,
 }
 
 impl Default for ClientActionInput {
@@ -70,6 +85,17 @@ impl Default for ClientActionInput {
             cl_yawspeed: CL_YAWSPEED_DEFAULT,
             now_msec: 16,
             frame_msec: 16,
+            pad_move: [0.0; 2],
+            pad_look: [0.0; 2],
+            pad_deflection: 0.0,
+            pad_sensitivity: 1.0,
+            pad_ads_sensitivity: 1.0,
+            pad_turn_rate: [0.0; 2],
+            pad_look_delta: [0.0; 2],
+            pad_aim_assist: 0,
+            pad_lockon: None,
+            pad_autoaim: None,
+            pad_was_ads: false,
         }
     }
 }
@@ -140,15 +166,19 @@ pub fn build_usercmd(input: &mut ClientActionInput, look: &LookState, server_tim
         input.fov_scale,
     );
     let (mouse_pitch, mouse_yaw) = mouse_move_angles(mx, my, input.m_yaw, input.m_pitch);
+    let pad_pitch = (input.pad_look_delta[0] * ANGLE2SHORT) as i32;
+    let pad_yaw = (input.pad_look_delta[1] * ANGLE2SHORT) as i32;
+    let forward = (axes.forward + input.pad_move[0]).clamp(-1.0, 1.0);
+    let right = (axes.right + input.pad_move[1]).clamp(-1.0, 1.0);
 
     create_cmd(&CreateCmdInput {
         server_time,
         angles: look.angles,
         buttons: bits,
-        forwardmove: axis_to_move(axes.forward),
-        rightmove: axis_to_move(axes.right),
-        mouse_pitch_delta: mouse_pitch,
-        mouse_yaw_delta: mouse_yaw,
+        forwardmove: axis_to_move(forward),
+        rightmove: axis_to_move(right),
+        mouse_pitch_delta: mouse_pitch + pad_pitch,
+        mouse_yaw_delta: mouse_yaw + pad_yaw,
         key_pitch_delta: 0,
         key_yaw_delta: 0,
         frozen: false,

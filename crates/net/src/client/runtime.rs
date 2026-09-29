@@ -801,6 +801,91 @@ pub fn sample_client_input(
     if frozen {
         actions.mouse_x = 0.0;
         actions.mouse_y = 0.0;
+        actions.pad_move = [0.0; 2];
+        actions.pad_look = [0.0; 2];
+    }
+    if let Some(ps) = ps {
+        let world = prediction.0.world();
+        let eye = [
+            ps.origin[0],
+            ps.origin[1],
+            ps.origin[2] + ps.view_height_current,
+        ];
+        let visible = |point: [f32; 3]| {
+            let hit =
+                world.trace_world(eye, point, [0.0; 3], [0.0; 3], hud_iw4::OVERHEAD_TRACE_MASK);
+            hit.fraction >= 1.0 && hit.startsolid == 0
+        };
+        let angles = [
+            look.angles[0] as f32 / input_iw4::ANGLE2SHORT,
+            look.angles[1] as f32 / input_iw4::ANGLE2SHORT,
+        ];
+        let (sp, cp) = angles[0].to_radians().sin_cos();
+        let (sy, cy) = angles[1].to_radians().sin_cos();
+        let forward = [cp * cy, cp * sy, -sp];
+        let in_front = |origin: [f32; 3], radius: f32| {
+            let d = [
+                origin[0] - ps.origin[0],
+                origin[1] - ps.origin[1],
+                origin[2] - ps.origin[2],
+            ];
+            d[0] * forward[0] + d[1] * forward[1] + d[2] * forward[2] + radius >= 0.0
+        };
+        let mut targets: Vec<crate::client::pad_aim::AimTarget> = Vec::new();
+        if actions.pad_aim_assist > 0 {
+            const RADIUS: f32 = 10.0;
+            let snapshot = presented.snapshot();
+            let team = |id: sim::ClientId| {
+                snapshot
+                    .and_then(|s| s.meta.for_client(id))
+                    .map(|m| m.client_state_team)
+            };
+            let teams = snapshot.is_some_and(|s| s.meta.kind.is_team());
+            let mine = team(local.0);
+            for id in snapshot
+                .into_iter()
+                .flat_map(|s| s.players.iter().map(|(id, _)| *id))
+            {
+                if id == local.0 || (teams && team(id) == mine) {
+                    continue;
+                }
+                let Some(other) = presented.player(id).filter(|o| o.pm_type == 0) else {
+                    continue;
+                };
+                let o = other.origin;
+                let head = [o[0], o[1], o[2] + other.view_height_current];
+                if !in_front(o, RADIUS) || !visible(head) {
+                    continue;
+                }
+                let top = other.view_height_current + 8.0;
+                targets.push(crate::client::pad_aim::AimTarget {
+                    key: u64::from(id.0),
+                    mins: [o[0] - RADIUS, o[1] - RADIUS, o[2]],
+                    maxs: [o[0] + RADIUS, o[1] + RADIUS, o[2] + top],
+                    aim: [o[0], o[1], o[2] + top * 0.75],
+                    velocity: other.velocity,
+                });
+            }
+        }
+        let ranges = world
+            .weapon_combat_row(playerstate_iw4::get_viewmodel_weapon_index(ps))
+            .map_or(weapon_iw4::AimAssistRanges::NONE, |facts| facts.aim_assist);
+        let view = crate::client::pad_aim::AimView {
+            eye,
+            angles,
+            velocity: ps.velocity,
+            ads_lerp: ps.f_weapon_pos_frac,
+            fov_scale: actions.fov_scale.max(0.01),
+            ranges,
+            dt: cls.frametime_secs(),
+        };
+        let ads = actions.client.using_ads || actions.client.kb.speed.active;
+        crate::client::pad_aim::pad_look_frame(&mut actions, &view, &targets, ads);
+    } else {
+        actions.pad_look_delta = [0.0; 2];
+    }
+    if frozen {
+        actions.pad_look_delta = [0.0; 2];
     }
     let choose_direction = presented
         .snapshot()
@@ -983,6 +1068,11 @@ pub fn sample_client_input(
         }
     }
     let mut cmd = build_usercmd(&mut actions, &look, 0);
+    if cmd.buttons & playerstate_iw4::buttons::USE_RELOAD != 0
+        && ps.is_some_and(|ps| ps.cursor_hint == 0)
+    {
+        cmd.buttons |= playerstate_iw4::buttons::RELOAD;
+    }
     look.angles = cmd.angles;
     if let Some((mouse_x, mouse_y)) = remote_mouse {
         cmd.remote_control = remote_control_axes(&actions, mouse_x, mouse_y);

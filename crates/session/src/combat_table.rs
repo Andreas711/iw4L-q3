@@ -163,6 +163,11 @@ pub fn from_registry(
                     WeaponCombatFacts::none()
                 });
             facts.alternate_weapon = weapons.alternate_of(i as u32);
+            facts.aim_assist = weapon_iw4::AimAssistRanges {
+                auto_aim: f.auto_aim_range,
+                hip: f.aim_assist_range,
+                ads: f.aim_assist_range_ads,
+            };
             facts
         })
         .collect();

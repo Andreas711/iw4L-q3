@@ -1253,6 +1253,9 @@ pub struct WeaponGeometry {
     pub sprint_drop_time_ms: i32,
 
     pub fuse_time_ms: i32,
+    pub auto_aim_range: f32,
+    pub aim_assist_range: f32,
+    pub aim_assist_range_ads: f32,
 
     pub cook_off_hold: bool,
 

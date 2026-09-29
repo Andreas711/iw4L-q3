@@ -56,6 +56,7 @@ pub fn install_frontend_menus(catalog: &mut asset_game::MenuCatalog) -> Result<(
     catalog.load_definitions(include_str!("../menus/connection_error.json"))?;
     catalog.load_definitions(include_str!("../menus/classes.json"))?;
     catalog.load_definitions(include_str!("../menus/settings.json"))?;
+    catalog.load_definitions(include_str!("../menus/controller.json"))?;
     for (name, menu) in &mut catalog.menus {
         if let Some(chat) = menu
             .items
@@ -76,7 +77,15 @@ pub fn install_frontend_menus(catalog: &mut asset_game::MenuCatalog) -> Result<(
             multiplayer.handlers.action = vec![asset_game::MenuEvent::Script(
                 "play mouse_click; close self; open options_multi;".into(),
             )];
+            let mut controller = multiplayer.clone();
             menu.items.push(multiplayer);
+            controller.name = "controller_settings".into();
+            controller.text_key = "Controller".into();
+            controller.rect.y = 108.0;
+            controller.handlers.action = vec![asset_game::MenuEvent::Script(
+                "play mouse_click; close self; open options_controller;".into(),
+            )];
+            menu.items.push(controller);
         }
 
         let removed_rows: Vec<_> = menu
@@ -93,7 +102,10 @@ pub fn install_frontend_menus(catalog: &mut asset_game::MenuCatalog) -> Result<(
             .collect();
         menu.items.retain(|item| {
             !removed_rows.iter().any(|&(x, y)| {
-                item.rect.x == x && item.rect.y == y && item.name != "multiplayer_settings"
+                item.rect.x == x
+                    && item.rect.y == y
+                    && item.name != "multiplayer_settings"
+                    && item.name != "controller_settings"
             })
         });
         if name == "pc_options_controls" {

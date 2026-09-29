@@ -661,15 +661,17 @@ fn handle_input(
     };
 
     if pressed.down {
-        runner.focus_step(&top, 1, false);
+        runner.focus_nav(&top, 0, 1);
     }
     if pressed.up {
-        runner.focus_step(&top, -1, false);
+        runner.focus_nav(&top, 0, -1);
     }
-    if (pressed.left || pressed.right)
-        && let Some(focus) = runner.menus.stack.last().and_then(|m| m.focus)
-    {
-        runner.adjust(&top, focus, if pressed.left { -1 } else { 1 });
+    if pressed.left || pressed.right {
+        let step = if pressed.left { -1 } else { 1 };
+        let focus = runner.menus.stack.last().and_then(|m| m.focus);
+        if !focus.is_some_and(|focus| runner.adjust(&top, focus, step)) {
+            runner.focus_nav(&top, step, 0);
+        }
         return;
     }
     if pressed.enter {
