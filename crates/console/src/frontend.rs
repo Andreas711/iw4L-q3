@@ -107,6 +107,7 @@ pub(crate) fn route(
     }
     if returned_from_world {
         commands.remove_resource::<frame::HostMatchRules>();
+        commands.remove_resource::<sim::HostGameModeSelection>();
         *party = UiPartyState::default();
         state.public = false;
     } else if returned_in_menu && state.public {
