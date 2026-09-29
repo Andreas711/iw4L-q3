@@ -127,7 +127,7 @@ pub use sway::{
     lerp_sway_params, sway_contribution, sway_shellshock_landing_scale, track, track_a,
 };
 pub use tick::{
-    BURST_COOLDOWN_DEFAULT_MS, BUTTON_ATTACK, BUTTON_RELOAD, BUTTON_THROW,
+    AimAssistRanges, BURST_COOLDOWN_DEFAULT_MS, BUTTON_ATTACK, BUTTON_RELOAD, BUTTON_THROW,
     CHECK_FIRING_AMMO_DRY_FIRE_MS, CapturedCombatInput, MissingCombatFacts, PERK_FASTRELOAD,
     PERK_WEAP_RELOAD_MULTIPLIER_DEFAULT, WeaponCmd, WeaponCombatFacts, WeaponHandState,
     WeaponTickEvent, get_weapon_fire_button, perk_fastreload_eligible, spawn_clip_stock,

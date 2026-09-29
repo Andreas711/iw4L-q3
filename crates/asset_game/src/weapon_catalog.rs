@@ -217,6 +217,12 @@ pub struct WeaponBodyFacts {
     pub sprint_drop_time_ms: i32,
     pub fuse_time_ms: i32,
 
+    pub auto_aim_range: f32,
+
+    pub aim_assist_range: f32,
+
+    pub aim_assist_range_ads: f32,
+
     pub cook_off_hold: bool,
 
     pub clip_only: bool,
@@ -1729,6 +1735,9 @@ impl WeaponCatalog {
                 sprint_loop_time_ms: geometry.sprint_loop_time_ms,
                 sprint_drop_time_ms: geometry.sprint_drop_time_ms,
                 fuse_time_ms: geometry.fuse_time_ms,
+                auto_aim_range: geometry.auto_aim_range,
+                aim_assist_range: geometry.aim_assist_range,
+                aim_assist_range_ads: geometry.aim_assist_range_ads,
                 cook_off_hold: geometry.cook_off_hold,
                 clip_only: geometry.clip_only,
                 timed_detonation: geometry.timed_detonation,
@@ -4690,6 +4699,11 @@ fn merge_body_facts(dst: &mut WeaponBodyFacts, src: WeaponBodyFacts) {
     }
     if dst.fuse_time_ms == 0 {
         dst.fuse_time_ms = src.fuse_time_ms;
+    }
+    if dst.aim_assist_range == 0.0 {
+        dst.auto_aim_range = src.auto_aim_range;
+        dst.aim_assist_range = src.aim_assist_range;
+        dst.aim_assist_range_ads = src.aim_assist_range_ads;
     }
     if dst.sprint_raise_time_ms == 0 {
         dst.sprint_raise_time_ms = src.sprint_raise_time_ms;

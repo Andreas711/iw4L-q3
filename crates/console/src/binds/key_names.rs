@@ -33,6 +33,21 @@ macro_rules! key_catalog {
             $( $($m_hint,)? )*
             "mwheelup",
             "mwheeldown",
+            "BUTTON_A",
+            "BUTTON_B",
+            "BUTTON_X",
+            "BUTTON_Y",
+            "BUTTON_LSHLDR",
+            "BUTTON_RSHLDR",
+            "BUTTON_LTRIG",
+            "BUTTON_RTRIG",
+            "BUTTON_LSTICK",
+            "BUTTON_RSTICK",
+            "DPAD_UP",
+            "DPAD_DOWN",
+            "DPAD_LEFT",
+            "DPAD_RIGHT",
+            "BUTTON_BACK",
         ];
 
         pub fn host_keynum(button: BindButton) -> usize {
@@ -43,6 +58,7 @@ macro_rules! key_catalog {
                 },
                 BindButton::WheelUp => 186,
                 BindButton::WheelDown => 187,
+                BindButton::Pad(pad) => pad.keynum(),
                 BindButton::Key(key) => match key {
                     $(KeyCode::$k_button => $k_code,)*
                     _ => 62,
@@ -65,7 +81,13 @@ macro_rules! key_catalog {
                 )*
                 "mwheelup" | "wheelup" => Some(vec![BindButton::WheelUp]),
                 "mwheeldown" | "wheeldown" => Some(vec![BindButton::WheelDown]),
-                _ => None,
+                other => {
+                    let upper = other.to_ascii_uppercase();
+                    super::PadButton::ALL
+                        .into_iter()
+                        .find(|pad| pad.console_name() == upper || pad.label() == upper)
+                        .map(|pad| vec![BindButton::Pad(pad)])
+                }
             }
         }
 
@@ -82,6 +104,7 @@ macro_rules! key_catalog {
                 },
                 BindButton::WheelUp => "MWHEELUP".into(),
                 BindButton::WheelDown => "MWHEELDOWN".into(),
+                BindButton::Pad(pad) => pad.console_name().into(),
             }
         }
 

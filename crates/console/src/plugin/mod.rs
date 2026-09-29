@@ -99,6 +99,23 @@ impl Plugin for ConsolePlugin {
                 (setup_console, crate::user_settings::load_user_settings).chain(),
             )
             .add_systems(PreUpdate, feed_console_keyboard.before(InputSystems))
+            .init_resource::<frame::ActivePad>()
+            .add_systems(
+                PreUpdate,
+                (
+                    crate::gamepad::track_active_pad,
+                    crate::gamepad::drive_menus_with_pad,
+                )
+                    .chain()
+                    .after(InputSystems)
+                    .before(publish_client_action_input),
+            )
+            .add_systems(
+                Update,
+                crate::user_settings::apply_pad_layout_setting
+                    .after(crate::user_settings::consume_menu_binding)
+                    .before(crate::user_settings::sync_binding_view),
+            )
             .add_systems(
                 PreUpdate,
                 (
@@ -265,7 +282,21 @@ fn publish_client_action_input(
     mut hud_input: ResMut<frame::HudInputView>,
     settings: Res<frame::GameSettings>,
     mut out: ResMut<ClientActionInput>,
+    (gamepads, active, mut aiming_with_pad): (
+        Query<&bevy::input::gamepad::Gamepad>,
+        Res<frame::ActivePad>,
+        Local<bool>,
+    ),
 ) {
+    let pad = active.0.and_then(|entity| gamepads.get(entity).ok());
+    out.pad_aim_assist = if *aiming_with_pad && pad.is_some() {
+        settings.pad_aim_assist
+    } else {
+        0
+    };
+    out.pad_move = [0.0; 2];
+    out.pad_look = [0.0; 2];
+    out.pad_deflection = 0.0;
     hud_input.console_open = console.open;
     if binds.is_changed() || hud_input.binding_keys.is_empty() {
         hud_input.binding_keys.clear();
@@ -337,7 +368,22 @@ fn publish_client_action_input(
         return;
     }
 
-    let inputs = BindInputs::new(&keys, &mouse_buttons);
+    out.pad_sensitivity = settings.pad_sensitivity / frame::GameSettings::PAD_SENSITIVITY_DEFAULT;
+    out.pad_ads_sensitivity = settings.pad_ads_sensitivity;
+    if let Some(pad) = pad {
+        let sticks = crate::gamepad::sticks(pad, &settings);
+        let look = crate::gamepad::shaped_look(sticks.look, &settings);
+        out.pad_move = [sticks.movement.x, sticks.movement.y];
+        out.pad_look = [look.x, look.y];
+        out.pad_deflection = sticks.movement.x.abs().max(sticks.look.length());
+        if sticks.look.length() > 0.0
+            || sticks.movement.length() > 0.0
+            || pad.get_just_pressed().next().is_some()
+        {
+            *aiming_with_pad = true;
+        }
+    }
+    let inputs = BindInputs::new(&keys, &mouse_buttons).with_pad(pad);
     for (button, id) in binds.iter() {
         let key_num = host_keynum(button);
         if key_num >= input_iw4::KEY_COUNT {
@@ -392,9 +438,14 @@ fn publish_client_action_input(
     let (rx, ry) = scripted.mouse_rate().unwrap_or((0.0, 0.0));
     out.mouse_x += sx + rx;
     out.mouse_y += sy + ry;
+    let mut moved = 0.0;
     for ev in motion.read() {
         out.mouse_x += ev.delta.x;
         out.mouse_y += ev.delta.y;
+        moved += ev.delta.x.abs() + ev.delta.y.abs();
+    }
+    if moved > 2.0 || mouse_buttons.get_just_pressed().next().is_some() {
+        *aiming_with_pad = false;
     }
 }
 

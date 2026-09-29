@@ -87,6 +87,8 @@
       {"index": 30, "fields": {"vis_exp": "0"}},
       {"index": 31, "fields": {"vis_exp": "0"}},
       {"index": 32, "fields": {"vis_exp": "0"}},
+      {"index": 33, "fields": {"vis_exp": "0"}},
+      {"index": 34, "fields": {"vis_exp": "0"}},
       {"index": 21, "fields": {"text_key": "@MENU_ADVANCED_VIDEO"}}
     ],
     "item_copies": [

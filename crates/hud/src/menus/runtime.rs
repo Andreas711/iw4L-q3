@@ -491,6 +491,77 @@ impl Runner<'_, '_> {
         self.set_focus(menu, next);
     }
 
+    /// Menu files list items in no particular screen order, so focus moves
+    /// by position: within a column vertically, across columns sideways.
+    pub(crate) fn focus_nav(&mut self, menu: &str, dx: i32, dy: i32) -> bool {
+        let catalog = self.catalog;
+        let Some(def) = catalog.get(menu) else {
+            return false;
+        };
+        let current = self.menus.get_mut(menu).and_then(|m| m.focus);
+        let visible = self.visible_items(menu);
+        let candidates: Vec<(usize, [f32; 4])> = (0..def.items.len())
+            .filter(|&i| is_focusable(&def.items[i]) && visible.contains(&i))
+            .map(|i| (i, nav_rect(&def.items[i])))
+            .collect();
+        let Some(&(at, here)) = current.and_then(|c| candidates.iter().find(|(i, _)| *i == c))
+        else {
+            if dx != 0 {
+                return false;
+            }
+            self.focus_step(menu, dy, true);
+            return true;
+        };
+        let centre = |r: [f32; 4]| [(r[0] + r[2]) * 0.5, (r[1] + r[3]) * 0.5];
+        let c = centre(here);
+        let same_column = |r: [f32; 4]| {
+            let o = centre(r);
+            (r[0] <= c[0] && c[0] <= r[2]) || (here[0] <= o[0] && o[0] <= here[2])
+        };
+        let others = candidates.iter().filter(|(i, _)| *i != at);
+        let next = if dy != 0 {
+            let dir = dy.signum() as f32;
+            let column: Vec<_> = others.filter(|(_, r)| same_column(*r)).collect();
+            let ahead = column
+                .iter()
+                .filter(|(_, r)| (centre(*r)[1] - c[1]) * dir > 0.5)
+                .min_by(|a, b| {
+                    let da = (centre(a.1)[1] - c[1]).abs();
+                    let db = (centre(b.1)[1] - c[1]).abs();
+                    da.total_cmp(&db)
+                });
+            let wrapped = || {
+                column
+                    .iter()
+                    .min_by(|a, b| (centre(a.1)[1] * dir).total_cmp(&(centre(b.1)[1] * dir)))
+            };
+            match ahead.or_else(wrapped) {
+                Some((index, _)) => *index,
+                None => {
+                    self.focus_step(menu, dy, false);
+                    return true;
+                }
+            }
+        } else {
+            let dir = dx.signum() as f32;
+            let Some((index, _)) = others
+                .filter(|(_, r)| !same_column(*r) && (centre(*r)[0] - c[0]) * dir > 0.0)
+                .min_by(|a, b| {
+                    let score = |r: [f32; 4]| {
+                        let o = centre(r);
+                        (o[1] - c[1]).abs() * 4.0 + (o[0] - c[0]).abs()
+                    };
+                    score(a.1).total_cmp(&score(b.1))
+                })
+            else {
+                return false;
+            };
+            *index
+        };
+        self.set_focus(menu, next);
+        true
+    }
+
     pub(crate) fn visible_items(&mut self, menu: &str) -> Vec<usize> {
         let Some(def) = self.catalog.get(menu) else {
             return Vec::new();
@@ -625,4 +696,22 @@ impl Runner<'_, '_> {
         };
         self.run_events(menu, Some(index), events);
     }
+}
+
+/// Left, top, right, bottom on the 640 by 480 virtual screen.
+fn nav_rect(item: &asset_game::MenuItem) -> [f32; 4] {
+    let r = &item.rect;
+    let ox = match r.horz_align {
+        2 => 320.0,
+        3 => 640.0,
+        _ => 0.0,
+    };
+    let oy = match r.vert_align {
+        2 => 240.0,
+        3 => 480.0,
+        _ => 0.0,
+    };
+    let (x0, x1) = (r.x + ox, r.x + ox + r.w);
+    let (y0, y1) = (r.y + oy, r.y + oy + r.h);
+    [x0.min(x1), y0.min(y1), x0.max(x1), y0.max(y1)]
 }

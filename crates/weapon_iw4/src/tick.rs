@@ -138,8 +138,25 @@ pub struct CapturedCombatInput {
     pub dual_mag: Option<crate::reload::DualMagTimes>,
 }
 
+/// Map units; zero where the weapon sets none.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AimAssistRanges {
+    pub auto_aim: f32,
+    pub hip: f32,
+    pub ads: f32,
+}
+
+impl AimAssistRanges {
+    pub const NONE: Self = Self {
+        auto_aim: 0.0,
+        hip: 0.0,
+        ads: 0.0,
+    };
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WeaponCombatFacts {
+    pub aim_assist: AimAssistRanges,
     pub fire_time_ms: i32,
     pub fire_delay_ms: i32,
     pub raise_time_ms: i32,
@@ -273,6 +290,7 @@ impl Default for WeaponCombatFacts {
 impl WeaponCombatFacts {
     pub const fn none() -> Self {
         Self {
+            aim_assist: AimAssistRanges::NONE,
             fire_time_ms: 0,
             fire_delay_ms: 0,
             raise_time_ms: 0,
@@ -380,6 +398,7 @@ impl WeaponCombatFacts {
             return Err(MissingCombatFacts::LocationDamage);
         }
         Ok(Self {
+            aim_assist: AimAssistRanges::NONE,
             fire_time_ms: input.fire_time_ms,
             fire_delay_ms: input.fire_delay_ms,
             raise_time_ms: input.raise_time_ms,

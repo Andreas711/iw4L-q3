@@ -151,8 +151,18 @@ fn update(
     gamepads: Query<Entity, With<Gamepad>>,
     mut state: Local<RumblePlayback>,
     mut output: MessageWriter<GamepadRumbleRequest>,
+    settings: Res<frame::GameSettings>,
+    active: Option<Res<frame::ActivePad>>,
 ) {
     let now = clock.time();
+    if !settings.pad_vibration {
+        for _ in requests.read() {}
+        state.active.clear();
+        if let Some((gamepad, _)) = state.output.take() {
+            output.write(GamepadRumbleRequest::Stop { gamepad });
+        }
+        return;
+    }
     let owner = bank.as_ref().and_then(|bank| {
         let meta = presented.snapshot()?.meta.for_client(local.0)?;
         (meta.lifecycle == sim::ClientLifecycle::Alive).then_some((
@@ -198,7 +208,10 @@ fn update(
         intensity.strong_motor = intensity.strong_motor.max(current.strong_motor);
         intensity.weak_motor = intensity.weak_motor.max(current.weak_motor);
     }
-    let selected = gamepads.iter().min_by_key(|entity| entity.to_bits());
+    let selected = active
+        .and_then(|active| active.0)
+        .filter(|entity| gamepads.contains(*entity))
+        .or_else(|| gamepads.iter().min_by_key(|entity| entity.to_bits()));
     if state
         .output
         .is_some_and(|(entity, _)| Some(entity) != selected)
