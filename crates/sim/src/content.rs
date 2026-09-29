@@ -255,20 +255,6 @@ fn hash_equipment(h: &mut Digest, rows: &[crate::EquipmentRuntimeFacts]) {
     }
 }
 
-pub fn content_digest_v1(
-    combat: &[WeaponCombatFacts],
-    bootstrap: &MatchBootstrap,
-    clip_brushes: &[SimBrush],
-) -> u64 {
-    let mut h = Digest::new();
-    h.u64(CONTENT_DIGEST_SCHEME);
-    hash_combat(&mut h, combat);
-    hash_classes(&mut h, &bootstrap.classes);
-    hash_spawns(&mut h, &bootstrap.spawns);
-    hash_collision(&mut h, clip_brushes);
-    h.finish()
-}
-
 fn hash_script_models(h: &mut Digest, script_models: &[crate::EntityCollisionCapabilities]) {
     h.u32(script_models.len() as u32);
     for capabilities in script_models {
@@ -314,7 +300,7 @@ fn hash_script_models(h: &mut Digest, script_models: &[crate::EntityCollisionCap
     }
 }
 
-pub fn content_digest_v2(
+pub fn content_digest(
     combat: &[WeaponCombatFacts],
     runnable: &[bool],
     transition_groups: &[u32],
@@ -346,7 +332,7 @@ pub struct ContentComponents {
     pub classes: u64,
 }
 
-pub fn content_components_v2(
+pub fn content_components(
     combat: &[WeaponCombatFacts],
     runnable: &[bool],
     transition_groups: &[u32],
@@ -383,12 +369,4 @@ pub fn content_components_v2(
         weapons: weapons.finish(),
         classes: classes.finish(),
     }
-}
-
-pub fn content_digest_v0(combat: &[WeaponCombatFacts], classes: &[ClassDef]) -> u64 {
-    let bootstrap = MatchBootstrap {
-        classes: classes.to_vec(),
-        ..MatchBootstrap::default()
-    };
-    content_digest_v1(combat, &bootstrap, &[])
 }

@@ -60,10 +60,7 @@ pub use combat::{
     AcceptedShot, Emission, EntityClipKind, PlayerCollisionRepresentation, ShotCollisionGeometry,
     ShotCollisionVerdict, TracePhaseOutput, spread_direction_on_plane, spread_pellet_direction,
 };
-pub use content::{
-    CONTENT_DIGEST_SCHEME, ContentComponents, content_components_v2, content_digest_v0,
-    content_digest_v1, content_digest_v2,
-};
+pub use content::{CONTENT_DIGEST_SCHEME, ContentComponents, content_components, content_digest};
 pub use corpse::{PlayerCorpsePool, PlayerCorpseSlot, level_time_ms};
 pub use damage::{DamageAttempt, DamageOutcome, DamageRefusal, DeathCommit};
 pub use equipment::{
