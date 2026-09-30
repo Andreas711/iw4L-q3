@@ -444,10 +444,15 @@ pub const SND_ALIAS_PITCH_MIN_OFF: usize = 50;
 pub const SND_ALIAS_PITCH_MAX_OFF: usize = 52;
 pub const SND_ALIAS_DIST_MIN_OFF: usize = 56;
 pub const SND_ALIAS_DIST_MAX_OFF: usize = 58;
+pub const SND_ALIAS_PRIORITY_DISTANCE_OFF: usize = 60;
 pub const SND_ALIAS_ENVELOP_MIN_OFF: usize = 62;
 pub const SND_ALIAS_ENVELOP_MAX_OFF: usize = 64;
 pub const SND_ALIAS_ENVELOP_PERCENTAGE_OFF: usize = 66;
+pub const SND_ALIAS_PRIORITY_MIN_THRESHOLD_OFF: usize = 68;
+pub const SND_ALIAS_PRIORITY_MAX_THRESHOLD_OFF: usize = 69;
 pub const SND_ALIAS_PROBABILITY_OFF: usize = 70;
+pub const SND_ALIAS_PRIORITY_MIN_OFF: usize = 73;
+pub const SND_ALIAS_PRIORITY_MAX_OFF: usize = 74;
 
 pub const SND_ALIAS_LIMIT_COUNT_OFF: usize = 80;
 pub const SND_ALIAS_ENTITY_LIMIT_COUNT_OFF: usize = 81;

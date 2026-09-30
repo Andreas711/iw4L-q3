@@ -295,6 +295,7 @@ pub struct SimContentBuilder {
     player_kits: [PlayerKitCollision; 2],
     player_anim_tree: Option<Arc<xmodel_runtime::XAnimTreeDefinition>>,
     player_anim_node_names: Vec<String>,
+    script_model_anims: std::collections::BTreeMap<String, crate::ScriptModelPlayAnim>,
     xanims: Arc<crate::MantleXAnimBind>,
     weapon_script_names: Arc<[String]>,
     weapon_script_aliases: std::collections::BTreeMap<String, u32>,
@@ -320,6 +321,16 @@ impl SimContentBuilder {
     }
     pub fn set_weapon_def_scales(&mut self, scales: Vec<(f32, f32, f32)>) {
         self.weapon_def_scales = scales;
+    }
+
+    pub fn set_script_model_anims(
+        &mut self,
+        anims: impl IntoIterator<Item = (String, crate::ScriptModelPlayAnim)>,
+    ) {
+        self.script_model_anims = anims
+            .into_iter()
+            .map(|(name, facts)| (name.to_ascii_lowercase(), facts))
+            .collect();
     }
 
     pub fn set_player_anim_script(&mut self, script: Option<Arc<PlayerAnimScript>>) {
@@ -2442,6 +2453,14 @@ impl SimState {
 
     pub(crate) fn corpses_mut(&mut self) -> &mut crate::PlayerCorpsePool {
         &mut self.corpses
+    }
+
+    pub(crate) fn script_model_anim(&self, name: &str) -> Option<crate::ScriptModelPlayAnim> {
+        self.content
+            .data
+            .script_model_anims
+            .get(&name.to_ascii_lowercase())
+            .copied()
     }
 
     pub(crate) fn player_anim_clip(&self, legs_anim: i32) -> Option<Arc<xmodel_runtime::AnimClip>> {

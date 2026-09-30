@@ -83,6 +83,11 @@ pub struct SessionFpvMeshesHandles {
 
 fn same_compositions(a: &asset_game::FpvSideAssemblies, b: &asset_game::FpvSideAssemblies) -> bool {
     Arc::ptr_eq(&a.bare, &b.bare)
+        && match (&a.melee, &b.melee) {
+            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (None, None) => true,
+            _ => false,
+        }
         && match (&a.rocket, &b.rocket) {
             (Some(a), Some(b)) => Arc::ptr_eq(a, b),
             (None, None) => true,
@@ -694,6 +699,12 @@ pub fn tick_fpv_viewmodel(
         active: active_rig,
         cursor: &mut cursor.0,
         rocket: rocket_visible,
+        melee: presented.viewweapon_player(local.0).is_some_and(|ps| {
+            matches!(
+                weapon_iw4::WeaponState::from_i32(ps.weaponstate_primary),
+                Ok(weapon_iw4::WeaponState::MeleeInit | weapon_iw4::WeaponState::MeleeFire)
+            )
+        }),
         sample,
         predicted_fire,
         dual,

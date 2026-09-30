@@ -767,7 +767,7 @@ pub(crate) fn constrain_cmd(
         cmd.buttons &= !buttons::JUMP;
     }
     if controls.weapons_disabled {
-        cmd.buttons &= !(buttons::ATTACK | buttons::ADS | buttons::MELEE_CHARGE);
+        cmd.buttons &= !(buttons::ATTACK | buttons::THROW | buttons::ADS | buttons::MELEE_CHARGE);
     }
     if controls.offhands_disabled || controls.weapons_disabled {
         cmd.buttons &= !(buttons::FRAG | buttons::SMOKE);

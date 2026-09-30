@@ -146,6 +146,12 @@ pub const WEAPON_DEF_CLIP_INDEX_OFF: usize = 0x220;
 pub const WEAPON_DEF_MAX_AMMO_OFF: usize = 0x224;
 pub const WEAPON_DEF_SHOTS_PER_FIRE_OFF: usize = 0x228;
 
+pub const WEAPON_DEF_MELEE_DELAY_OFF: usize = 0x24c;
+pub const WEAPON_DEF_MELEE_CHARGE_DELAY_OFF: usize = 0x250;
+pub const WEAPON_DEF_MELEE_TIME_OFF: usize = 0x26c;
+pub const WEAPON_DEF_MELEE_CHARGE_TIME_OFF: usize = 0x270;
+pub const WEAPON_DEF_KNIFE_MODEL_OFF: usize = 492;
+
 pub const WEAPON_DEF_FIRE_DELAY_OFF: usize = 0x248;
 pub const WEAPON_DEF_RECHAMBER_TIME_OFF: usize = 0x258;
 
@@ -186,6 +192,7 @@ pub const WEAPON_DEF_MAX_DAMAGE_RANGE_OFF: usize = 0x6a4;
 pub const WEAPON_DEF_MIN_DAMAGE_RANGE_OFF: usize = 0x6a8;
 
 pub const WEAPON_DEF_DAMAGE_OFF: usize = 0x238;
+pub const WEAPON_DEF_MELEE_DAMAGE_OFF: usize = 0x240;
 
 pub const WEAPON_DEF_BOOL_PACK_OFF: usize = 0x768;
 pub const WEAPON_DEF_INHERITS_PERKS_OFF: usize = 0x76f;

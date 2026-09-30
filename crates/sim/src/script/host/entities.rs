@@ -122,8 +122,6 @@ pub(crate) struct EngineState {
     pub winning_team: Option<String>,
     pub objectives: BTreeMap<u8, super::objectives::ScriptObjective>,
     pub minimap: Option<super::controls::MiniMap>,
-    pub weapon_locks: BTreeMap<u32, super::controls::ScriptLock>,
-    pub guides: BTreeMap<u64, super::guidance::Guide>,
     pub attractors: [Option<super::guidance::Attractor>; super::guidance::ATTRACTOR_SLOTS],
     pub turrets: BTreeMap<u64, super::turrets::Turret>,
     pub effects: BTreeMap<u64, PersistentFx>,
@@ -362,7 +360,10 @@ impl Runtime {
         {
             self.retired_presence.push((
                 presence,
-                matches!(entity.kind, EntityKind::Spawned | EntityKind::Vehicle),
+                matches!(
+                    entity.kind,
+                    EntityKind::Spawned | EntityKind::Vehicle | EntityKind::Missile(_)
+                ),
             ));
         }
         self.shown.remove(&id);

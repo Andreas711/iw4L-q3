@@ -678,18 +678,23 @@ struct UseItem {
     knife: bool,
 }
 
-fn knife_has_ammo_room(world: &FrameWorld, ps: &PlayerState, weapon: u32) -> bool {
+fn knife_pickup_ammo(world: &FrameWorld, ps: &PlayerState, weapon: u32) -> Option<(i32, i32, i32)> {
     if !ps.weapons.contains(&(weapon as i32)) {
-        return false;
+        return None;
     }
-    let Some(facts) = world
+    let facts = world
         .equipment_facts_for(weapon)
-        .filter(|f| f.is_throwing_knife())
-    else {
-        return false;
-    };
-    let (clip, _, _) = ammo_from_ps(world, ps, weapon);
-    clip < facts.clip_size
+        .filter(|f| f.is_retrievable_knife())?;
+    let (clip, left, stock) = ammo_from_ps(world, ps, weapon);
+    if facts.ballistic_blade {
+        if ps.weapon != weapon && clip == 0 {
+            return Some((1, left, stock));
+        }
+        let combat = world.combat_facts_for(weapon)?;
+        (stock < combat.max_ammo).then_some((clip, left, stock + 1))
+    } else {
+        (clip < facts.clip_size).then_some((clip + 1, left, stock))
+    }
 }
 
 fn grab_knife(world: &mut FrameWorld, walker: ClientId, number: i32, tick: Tick) {
@@ -699,17 +704,18 @@ fn grab_knife(world: &mut FrameWorld, walker: ClientId, number: i32, tick: Tick)
     let Some(mut ps) = world.player(walker).copied() else {
         return;
     };
-    if projectile.pos.tr_type != TR_STATIONARY
-        || !knife_has_ammo_room(world, &ps, projectile.weapon)
-    {
+    if projectile.pos.tr_type != TR_STATIONARY {
         return;
     }
     let weapon = projectile.weapon;
-    let (clip, left, stock) = ammo_from_ps(world, &ps, weapon);
-    set_ammo_on_ps(world, &mut ps, weapon, clip + 1, left, stock);
+    let Some((clip, left, stock)) = knife_pickup_ammo(world, &ps, weapon) else {
+        return;
+    };
+    let (old_clip, _, old_stock) = ammo_from_ps(world, &ps, weapon);
+    set_ammo_on_ps(world, &mut ps, weapon, clip, left, stock);
     *world.player_mut(walker).expect("picker exists") = ps;
     let meta = world.client_meta_mut(walker);
-    meta.set_ammo(weapon, clip + 1, stock);
+    meta.set_ammo(weapon, clip, stock);
     meta.mirror_held_ammo(ps.weapon);
     world.remove_projectile_by_number(number);
     world.free_dynamic_entity_number(number);
@@ -717,9 +723,9 @@ fn grab_knife(world: &mut FrameWorld, walker: ClientId, number: i32, tick: Tick)
         picker: walker.0 as i32,
         weapon,
         from_entnum: number,
-        clip_r: 1,
+        clip_r: clip - old_clip,
         clip_l: 0,
-        stock: 0,
+        stock: stock - old_stock,
         swapped_entnum: ENTITYNUM_NONE,
         picker_pm_type: ps.pm_type,
     });
@@ -797,7 +803,7 @@ fn selected_item(world: &FrameWorld, walker: ClientId, ps: &PlayerState) -> Opti
     }
     world.visit_projectiles(|projectile| {
         if projectile.pos.tr_type != TR_STATIONARY
-            || !knife_has_ammo_room(world, ps, projectile.weapon)
+            || knife_pickup_ammo(world, ps, projectile.weapon).is_none()
         {
             return;
         }

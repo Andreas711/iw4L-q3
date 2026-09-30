@@ -307,6 +307,24 @@ pub fn apply_prepared_match(
                 content.set_player_anim_tree(Some(definition), names);
             }
         }
+        let anim_namespace = prepared_map
+            .namespace
+            .unwrap_or(asset_core::AssetNamespace::Iw4);
+        content.set_script_model_anims(xanims.0.names().filter_map(|name| {
+            let parts = &xanims.0.get(anim_namespace, name)?.parts;
+            let frequency = if parts.numframes > 0 && parts.framerate > 0.0 {
+                parts.framerate / f32::from(parts.numframes)
+            } else {
+                0.0
+            };
+            Some((
+                name.to_owned(),
+                sim::ScriptModelPlayAnim {
+                    looping: parts.flags & 1 != 0,
+                    frequency,
+                },
+            ))
+        }));
         content.set_mantle_xanims(sim::MantleXAnimBind::from_clips(|fast, i| {
             let name = sim::MantleXAnimBind::clip_name(fast, i)?;
             xanims

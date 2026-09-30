@@ -1,4 +1,3 @@
-use crate::match_state::ClassDef;
 use crate::spawn::{AuthoredSpawnPoint, MatchBootstrap};
 use crate::world::SimBrush;
 use weapon_iw4::WeaponCombatFacts;
@@ -216,6 +215,11 @@ fn hash_equipment(h: &mut Digest, rows: &[crate::EquipmentRuntimeFacts]) {
         h.i32(row.fuse_time_ms);
         h.i32(row.hold_fire_time_ms);
         h.bool(row.cook_off_hold);
+        h.bool(row.has_detonator);
+        h.i32(row.detonate_delay_ms);
+        h.i32(row.detonate_time_ms);
+        h.bool(row.projectile_rotates);
+        h.i32(row.stickiness);
         h.bool(row.timed_detonation);
         h.bool(row.proj_impact_explode);
         h.bool(row.stick_to_players);
@@ -223,6 +227,10 @@ fn hash_equipment(h: &mut Digest, rows: &[crate::EquipmentRuntimeFacts]) {
         h.i32(row.explosion_radius_min);
         h.i32(row.explosion_inner_damage);
         h.i32(row.explosion_outer_damage);
+        h.f32(row.damage_cone_angle);
+        h.i32(row.missile_guidance);
+        h.i32(row.ignition_delay_ms);
+        h.bool(row.require_lock_to_fire);
         h.i32(row.projectile_speed);
         h.i32(row.projectile_speed_up);
         h.i32(row.projectile_speed_forward);

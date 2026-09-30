@@ -34,6 +34,9 @@ pub struct OffhandInvRow {
     pub offhand_hold_is_cancelable: Option<bool>,
 
     pub weap_type: i32,
+    pub has_detonator: bool,
+    pub detonate_delay_ms: i32,
+    pub detonate_time_ms: i32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -211,6 +214,20 @@ pub fn weapon_offhand_prepare(
     hand: &mut WeaponHandState,
     cmd: &mut WeaponCmd,
 ) -> Option<WeaponTickEvent> {
+    let row = offhand_row(&cmd.offhand, cmd.offhand.off_hand_index as u32);
+    if let Some(row) = row.filter(|row| row.has_detonator && row.ammo <= 0) {
+        hand.weaponstate = WeaponState::Offhand as i32;
+        hand.weapon_time = row.detonate_time_ms.max(1);
+        hand.weapon_delay = row.detonate_delay_ms.max(1);
+        cmd.weap_flags |= weap_flags::OFFHAND_VIEW;
+        if cmd.pm_type < 8 {
+            start_weapon_anim(
+                &mut hand.weap_anim,
+                crate::weap_anim::weap_anim_event::DETONATE,
+            );
+        }
+        return None;
+    }
     let hold = offhand_row(&cmd.offhand, cmd.offhand.off_hand_index as u32)
         .map(|r| r.hold_fire_time_ms)
         .unwrap_or(0);
@@ -350,6 +367,16 @@ pub fn weapon_advance_offhand(
                 None
             }
         }
+        Ok(WeaponState::Offhand) => {
+            if delayed_action {
+                Some(WeaponTickEvent::Detonated {
+                    weapon: cmd.offhand.off_hand_index as u32,
+                })
+            } else {
+                weapon_offhand_end(hand, cmd);
+                None
+            }
+        }
         Ok(WeaponState::OffhandEnd) if hand.weapon_time <= 0 => {
             crate::melee::weapon_settle_ready(
                 hand,
@@ -403,6 +430,15 @@ pub fn weapon_check_for_offhand(
     };
 
     let picked = get_first_available_offhand(&cmd.offhand.inventory, wanted);
+    let picked = if picked == 0 {
+        cmd.offhand
+            .inventory
+            .iter()
+            .find(|row| row.weapon != 0 && row.offhand_class == wanted && row.has_detonator)
+            .map_or(0, |row| row.weapon)
+    } else {
+        picked
+    };
     if picked == 0 {
         return None;
     }

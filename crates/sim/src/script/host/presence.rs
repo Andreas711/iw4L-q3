@@ -19,6 +19,7 @@ pub(crate) struct Shown {
 }
 
 struct Wanted {
+    collision_only: bool,
     object: u64,
     presence: ScriptModelId,
     origin: [f32; 3],
@@ -141,6 +142,7 @@ pub(crate) fn sync_presence(world: &mut World) {
     super::controls::sync_script_locks(world);
     super::triggers::dispatch_triggers(world);
     present(world, now);
+    settle_collision(world);
     resolve_link_tags(world);
 }
 
@@ -195,7 +197,7 @@ fn present(world: &mut World, now: i32) {
         });
         let posed = !near(shown.origin, want.origin) || !near_angles(shown.angles, want.angles);
         if let Some(mover) = frame.script_mover_mut_by_number(mover.state.number) {
-            if want.hidden {
+            if want.hidden || want.collision_only {
                 mover.state.e_flags |= entity_iw4::CG_SCRIPT_MOVER_NODRAW;
             } else {
                 mover.state.e_flags &= !entity_iw4::CG_SCRIPT_MOVER_NODRAW;
@@ -232,7 +234,7 @@ fn present(world: &mut World, now: i32) {
         let Some(entity) = runtime.entities.get_mut(&object) else {
             continue;
         };
-        if let Some(number) = number {
+        if let Some(number) = number.filter(|_| !matches!(entity.kind, EntityKind::Missile(_))) {
             entity.number = number;
         }
         runtime.shown.insert(object, shown);
@@ -334,6 +336,7 @@ fn collect_wanted(world: &mut World) -> Vec<Wanted> {
         let part_ops = std::mem::take(&mut entity.part_ops);
         let anim_op = entity.anim_op.take();
         let attachments = entity.attachments.clone();
+        let collision_only = matches!(entity.kind, EntityKind::Missile(_));
         let unchanged = part_ops.is_empty()
             && anim_op.is_none()
             && runtime.shown.get(&object).is_some_and(|shown| {
@@ -350,6 +353,7 @@ fn collect_wanted(world: &mut World) -> Vec<Wanted> {
             continue;
         }
         wanted.push(Wanted {
+            collision_only,
             object,
             presence,
             origin,
@@ -372,6 +376,10 @@ fn present_model(frame: &mut FrameWorld, want: &Wanted) {
         .as_deref()
         .and_then(|model| frame.model_capability(model))
         .flatten();
+    let anim = want
+        .anim_op
+        .as_ref()
+        .and_then(|op| op.as_deref().and_then(|clip| frame.script_model_anim(clip)));
     let Some(row) = frame.collision_owner_mut(want.presence) else {
         return;
     };
@@ -405,7 +413,13 @@ fn present_model(frame: &mut FrameWorld, want: &Wanted) {
         dobj.set_tag_hidden(tag, *hidden);
     }
     match &want.anim_op {
-        Some(Some(clip)) => dobj.begin_script_model_play_anim(clip, true, 1.0),
+        Some(Some(clip)) => {
+            let anim = anim.unwrap_or(crate::ScriptModelPlayAnim {
+                looping: false,
+                frequency: 0.0,
+            });
+            dobj.begin_script_model_play_anim(clip, anim.looping, anim.frequency);
+        }
         Some(None) => dobj.clear_script_model_play_anim(),
         None => {}
     }

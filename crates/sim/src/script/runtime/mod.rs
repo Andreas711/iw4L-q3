@@ -80,16 +80,27 @@ fn deliver_external(world: &mut World, now: i64) {
         stack: Vec::new(),
         state: ThreadState::Complete,
     };
-    if let Err(message) = deliver_pending(world, &mut carrier, now) {
-        world.resource_mut::<Runtime>().fault = Some(Fault::at(
-            &Location {
-                module: "<engine>".into(),
-                function: "notify".into(),
-                line: 0,
-                column: 0,
-            },
-            message,
-        ));
+    let pending = std::mem::take(&mut world.resource_mut::<Runtime>().pending_notifies);
+    let program = world.resource::<Runtime>().program.clone().unwrap();
+    for (receiver, name, args) in pending {
+        let result = notify(world, &mut carrier, &receiver, &name, &args, now);
+        if let Err(message) = result {
+            world.resource_mut::<Runtime>().fault = Some(Fault::at(
+                &Location {
+                    module: "<engine>".into(),
+                    function: "notify".into(),
+                    line: 0,
+                    column: 0,
+                },
+                message,
+            ));
+            break;
+        }
+        // A touch handler can wait again before the next toucher is notified.
+        run_ready(world, &program, now);
+        if world.resource::<Runtime>().fault.is_some() {
+            break;
+        }
     }
 }
 
@@ -1269,6 +1280,25 @@ pub(crate) fn advance_scheduler(world: &mut World) {
         }
         runtime.buckets.insert(now, current);
     }
+    run_ready(world, &program, now);
+    let deletes = std::mem::take(&mut world.resource_mut::<Runtime>().pending_deletes);
+    for object in deletes {
+        world.resource_mut::<Runtime>().delete_entity(object);
+    }
+    let mut runtime = world.resource_mut::<Runtime>();
+    for id in std::mem::take(&mut runtime.dying) {
+        if let Some(fields) = runtime.objects.get_mut(&id) {
+            fields.clear();
+        }
+    }
+    if runtime.buckets.get(&now).is_some_and(VecDeque::is_empty) {
+        runtime.buckets.remove(&now);
+    }
+    runtime.loading = false;
+    collect_heap(world);
+}
+
+fn run_ready(world: &mut World, program: &Program, now: i64) {
     loop {
         let next = world
             .resource_mut::<Runtime>()
@@ -1289,7 +1319,7 @@ pub(crate) fn advance_scheduler(world: &mut World) {
         let mut thread = world.entity_mut(entity).take::<Thread>().unwrap();
         thread.state = ThreadState::Runnable;
         world.resource_mut::<Runtime>().budget = INSTRUCTION_BUDGET;
-        execute(world, &program, &mut thread, now);
+        execute(world, program, &mut thread, now);
         if thread.state == ThreadState::Complete {
             kill(world, entity, serial);
         } else {
@@ -1299,21 +1329,6 @@ pub(crate) fn advance_scheduler(world: &mut World) {
             break;
         }
     }
-    let deletes = std::mem::take(&mut world.resource_mut::<Runtime>().pending_deletes);
-    for object in deletes {
-        world.resource_mut::<Runtime>().delete_entity(object);
-    }
-    let mut runtime = world.resource_mut::<Runtime>();
-    for id in std::mem::take(&mut runtime.dying) {
-        if let Some(fields) = runtime.objects.get_mut(&id) {
-            fields.clear();
-        }
-    }
-    if runtime.buckets.get(&now).is_some_and(VecDeque::is_empty) {
-        runtime.buckets.remove(&now);
-    }
-    runtime.loading = false;
-    collect_heap(world);
 }
 
 pub(super) fn execute(world: &mut World, program: &Program, thread: &mut Thread, now: i64) {

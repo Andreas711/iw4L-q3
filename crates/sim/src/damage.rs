@@ -63,6 +63,7 @@ pub enum DamageOutcome {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ExplosionBlast {
+    pub cone: Option<([f32; 3], f32)>,
     pub origin: [f32; 3],
     pub radius: f32,
     pub inner_damage: f32,
@@ -72,6 +73,17 @@ pub(crate) struct ExplosionBlast {
     pub attacker: ClientId,
     pub attacker_life: LifeSequence,
     pub killcam_entity_start_time: i32,
+}
+
+impl ExplosionBlast {
+    fn contains(&self, point: [f32; 3]) -> bool {
+        self.cone.is_none_or(|(forward, cosine)| {
+            let delta: [f32; 3] = std::array::from_fn(|i| point[i] - self.origin[i]);
+            let len = delta.iter().map(|v| v * v).sum::<f32>().sqrt();
+            len <= f32::EPSILON
+                || delta.iter().zip(forward).map(|(a, b)| a * b).sum::<f32>() >= cosine * len
+        })
+    }
 }
 
 struct GlassBlastHit {
@@ -102,6 +114,9 @@ fn apply_entity_blast(world: &mut FrameWorld, blast: &ExplosionBlast) {
     for (target, mid, dist) in
         crate::script::radius_targets(world.ecs(), blast.origin, blast.radius)
     {
+        if !blast.contains(mid) {
+            continue;
+        }
         let amount = radius_damage_amount(
             blast.inner_damage,
             blast.outer_damage,
@@ -276,6 +291,9 @@ fn radius_player_attempts(world: &FrameWorld, blast: &ExplosionBlast) -> Vec<Dam
         let Some(bounds) = world.player_area_bounds(target) else {
             continue;
         };
+        if !blast.contains(bounds.mid()) {
+            continue;
+        }
         let dist = radius_damage_distance_to_aabb(blast.origin, bounds.mid(), bounds.half());
         let vis_scale = player_radius_vis_scale(world, blast.origin, target);
         let amount = radius_damage_amount(
@@ -312,6 +330,9 @@ fn radius_glass_hits(world: &FrameWorld, blast: &ExplosionBlast) -> Vec<GlassBla
     }
     for (id, pane) in world.world_objects().glass_radius_targets() {
         let (mid, half) = glass_pane_aabb(pane);
+        if !blast.contains(mid) {
+            continue;
+        }
         let dist = radius_damage_distance_to_aabb(blast.origin, mid, half);
         let amount = radius_damage_amount(
             blast.inner_damage,

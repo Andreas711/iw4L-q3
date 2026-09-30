@@ -1261,6 +1261,10 @@ pub struct WeaponGeometry {
 
     pub clip_only: bool,
 
+    pub has_detonator: bool,
+    pub detonate_delay_ms: i32,
+    pub detonate_time_ms: i32,
+    pub projectile_rotates: bool,
     pub timed_detonation: bool,
 
     pub proj_impact_explode: bool,
@@ -1272,8 +1276,11 @@ pub struct WeaponGeometry {
 
     pub explosion_inner_damage: i32,
     pub explosion_outer_damage: i32,
+    pub damage_cone_angle: f32,
 
     pub missile_guidance: i32,
+    pub ignition_delay_ms: i32,
+    pub require_lock_to_fire: bool,
     pub stickiness: i32,
     pub projectile_speed: i32,
     pub projectile_speed_up: i32,

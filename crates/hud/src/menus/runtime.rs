@@ -696,7 +696,6 @@ impl Runner<'_, '_> {
     }
 }
 
-/// Left, top, right, bottom on the 640 by 480 virtual screen.
 fn nav_rect(item: &asset_game::MenuItem) -> [f32; 4] {
     let r = &item.rect;
     let ox = match r.horz_align {

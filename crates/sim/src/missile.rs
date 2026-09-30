@@ -129,12 +129,29 @@ fn fire_missile(
         return None;
     };
     let mut rng = MatchRng::new(shot.combat_seed as u64);
-    let dir = spread_direction_on_plane(
+    let mut dir = spread_direction_on_plane(
         shot.angles,
         shot.spread_degrees,
         &mut rng,
         ROCKET_SPREAD_PLANE,
     );
+    let mut origin = shot.origin;
+    if facts.missile_guidance == 3 {
+        dir = glam::Vec3::new(dir[0], dir[1], dir[2] + 0.3)
+            .normalize()
+            .to_array();
+        let (_, right, _) = math_iw4::angle_vectors(shot.angles);
+        origin = core::array::from_fn(|i| origin[i] + right[i] * 2.5);
+    }
+    let lock = world
+        .client_meta(shot.attacker)
+        .map(|m| m.weapon_lock)
+        .filter(|lock| lock.can_fire(shot.weapon, shot.attacker_life.0));
+    let guide = crate::MissileGuide {
+        target: lock.and_then(|lock| lock.aim),
+        top: lock.is_some_and(|lock| lock.flags & 4 != 0),
+        ..Default::default()
+    };
     let speed = facts.projectile_speed as f32;
     let gun_vel = shot.owner_velocity;
     let id = world.allocate_projectile_id();
@@ -158,10 +175,14 @@ fn fire_missile(
     ]);
     let pos = Trajectory {
         tr_time: time_ms,
-        tr_type: TR_LINEAR,
+        tr_type: if facts.missile_guidance == 3 {
+            entity_iw4::TR_GRAVITY
+        } else {
+            TR_LINEAR
+        },
         tr_duration: 0,
         tr_delta: velocity,
-        tr_base: shot.origin,
+        tr_base: origin,
     };
     perf::projectile(shot.weapon);
     let projectile = ProjectileState {
@@ -169,7 +190,7 @@ fn fire_missile(
         owner: shot.attacker,
         owner_life: shot.attacker_life,
         weapon: shot.weapon,
-        origin: shot.origin,
+        origin,
         velocity,
         pos,
         apos: fire_missile_apos(dir),
@@ -182,6 +203,7 @@ fn fire_missile(
         live: true,
         stuck_pane: None,
         grounded: false,
+        guide,
     };
     world.push_projectile(projectile);
     Some(projectile)

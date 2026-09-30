@@ -309,12 +309,20 @@ pub(crate) fn advance_weapon_command(
                 quick_reload,
             },
         ];
+        let locked_fire = world.missile_launch_facts(ps.weapon).is_none_or(|f| {
+            !f.require_lock_to_fire || meta.weapon_lock.can_fire(ps.weapon, meta.life_sequence.0)
+        });
+        let fire_buttons = if locked_fire {
+            cmd.buttons
+        } else {
+            cmd.buttons & !playerstate_iw4::buttons::ATTACK
+        };
         let selected_airdrop_marker =
             world.weapon_script_name(ps.weapon) == crate::equipment::AIRDROP_MARKER_WEAPON;
         let marker_offhand_class = i32::MAX;
         let mut wcmd = WeaponCmd {
             msec,
-            buttons: cmd.buttons
+            buttons: fire_buttons
                 | if selected_airdrop_marker && cmd.buttons & playerstate_iw4::buttons::ATTACK != 0
                 {
                     playerstate_iw4::buttons::FRAG
@@ -446,6 +454,9 @@ pub(crate) fn advance_weapon_command(
                         offhand_hold_is_cancelable: combat
                             .and_then(|f| f.offhand_hold_is_cancelable),
                         weap_type: combat.map(|f| f.weap_type).unwrap_or(0),
+                        has_detonator: eq.is_some_and(|e| e.has_detonator),
+                        detonate_delay_ms: eq.map_or(0, |e| e.detonate_delay_ms),
+                        detonate_time_ms: eq.map_or(0, |e| e.detonate_time_ms),
                     };
                 }
                 OffhandCmd {
@@ -582,6 +593,21 @@ pub(crate) fn advance_weapon_command(
         for slot in events.into_iter().flatten() {
             let (_hand_i, ev) = slot;
             match ev {
+                WeaponTickEvent::Detonated { weapon } => {
+                    world
+                        .weapon_notes
+                        .push(crate::equipment::WeaponNote::DetonationRequested {
+                            owner: *id,
+                            weapon,
+                        });
+                    if let Some(ps) = world.player_mut(*id) {
+                        movement_iw4::add_predictable_event(
+                            ps,
+                            entity_iw4::EntityEventKind::DETONATE.0,
+                            weapon as i32,
+                        );
+                    }
+                }
                 WeaponTickEvent::ReloadAmmoAdded { shells: _ } => {}
                 WeaponTickEvent::RechamberWeapon => {
                     if !hands[_hand_i as usize].delayed_rechamber {

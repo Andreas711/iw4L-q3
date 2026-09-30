@@ -113,6 +113,7 @@ pub struct FpvGenerateArgs<'a> {
     pub active: &'a mut Option<Arc<PreparedFpvRig>>,
     pub cursor: &'a mut FpvPresentState,
     pub rocket: bool,
+    pub melee: bool,
     pub sample: Option<FpvAuthoritySample>,
     pub predicted_fire: bool,
     pub dual: bool,
@@ -127,6 +128,7 @@ pub fn generate_fpv_pose(args: FpvGenerateArgs<'_>) -> FpvPoseKind {
         active,
         cursor,
         rocket,
+        melee,
         sample,
         predicted_fire,
         dual,
@@ -162,7 +164,7 @@ pub fn generate_fpv_pose(args: FpvGenerateArgs<'_>) -> FpvPoseKind {
     };
     let dual_drawn = !left.is_empty();
 
-    let Some(prepared) = rigs.pick(rocket, dual_drawn) else {
+    let Some(prepared) = rigs.pick(rocket, dual_drawn, melee) else {
         *active = None;
         return FpvPoseKind::Refuse(FpvPoseRefuse::EyePoseFailed {
             gun_xmodel: equipped.gun_xmodel.clone(),

@@ -18,6 +18,8 @@ mod item;
 mod mantle_xanim;
 pub mod match_state;
 mod missile;
+mod missile_guidance;
+pub use missile_guidance::{MissileGuide, MissileTarget};
 mod presence;
 mod remote_missile;
 pub mod script;

@@ -335,8 +335,7 @@ pub(crate) fn register(registry: &mut NativeRegistry) {
         )*};
     }
     answers!(Value::Int(1) => "isitemunlocked");
-    answers!(Value::Int(0) => "isusingturret",
-        "worldpointinreticle_circle");
+    answers!(Value::Int(0) => "isusingturret");
     answers!(Value::Undefined => "getspectatingplayer");
     answers!(Value::Vector([0.0; 3]) => "getthirdpersoncrosshairoffset");
 }

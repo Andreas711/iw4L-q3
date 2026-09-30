@@ -355,6 +355,8 @@ pub struct WeaponGeometry {
 
     pub world_model_name: Option<Ptr>,
 
+    pub knife_xmodel_name: Option<Ptr>,
+
     pub hide_tags: Option<Ptr>,
 
     pub sz_xanims: Option<Ptr>,

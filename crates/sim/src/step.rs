@@ -455,7 +455,6 @@ fn run_players_system(ecs: &mut World) {
             world.set_pmove_walking(*id, walking);
             world.link_player_area(*id, linked_bounds);
 
-            crate::weapon_lock::update(&mut world, *id, level_time);
             let shots = advance_weapon_command(&mut world, tick, *id, cmd, delta.min(200));
             for shot in shots {
                 crate::missile::fire_accepted_shot(&mut world, tick, &shot);

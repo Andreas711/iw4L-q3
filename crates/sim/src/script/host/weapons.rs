@@ -59,8 +59,15 @@ fn adopt(
     let now = now_ms(world);
     let model =
         Value::string(FrameWorld::from_world(world).weapon_projectile_model(projectile.weapon));
+    let facts = FrameWorld::from_world(world).equipment_facts_for(projectile.weapon);
+    let presence = if facts.is_some_and(|facts| !facts.timed_detonation && facts.stickiness != 0) {
+        Some(super::presence::spawn_presence(world, projectile.origin)?)
+    } else {
+        None
+    };
     let mut runtime = world.resource_mut::<Runtime>();
     let object = runtime.create_entity(EntityKind::Missile(projectile.id), classname)?;
+    runtime.entities.get_mut(&object).unwrap().presence = presence;
     runtime.entities.get_mut(&object).unwrap().number = projectile.entnum;
     runtime.set_object_field(object, "model", model);
     runtime.set_object_field(object, "origin", Value::Vector(projectile.origin_at(now)));
@@ -200,6 +207,10 @@ pub(crate) fn sync_engine_events(world: &mut World) {
             WeaponNote::Pullback { owner, weapon } => {
                 let weapon = super::players::script_weapon(world, owner.0, weapon);
                 (owner, "grenade_pullback", vec![weapon_name(world, weapon)])
+            }
+            WeaponNote::DetonationRequested { owner, weapon } => {
+                let weapon = super::players::script_weapon(world, owner.0, weapon);
+                (owner, "detonate", vec![weapon_name(world, weapon)])
             }
             WeaponNote::Fired { owner } => (owner, "begin_firing", Vec::new()),
             WeaponNote::ReloadStarted { owner } => (owner, "reload_start", Vec::new()),
@@ -408,7 +419,12 @@ fn settle_projectiles(world: &mut World, notes: &[WeaponNote]) {
                 if let Some(origin) = detonated {
                     runtime.set_object_field(object, "origin", Value::Vector(origin));
                 }
-                let lingers = runtime.entities[&object].classname.as_ref() == "grenade";
+                let entity = runtime.entities.get_mut(&object).unwrap();
+                let lingers = entity.classname.as_ref() == "grenade" && entity.presence.is_none();
+                entity.can_damage = false;
+                if let Some(presence) = entity.presence.take() {
+                    runtime.retired_presence.push((presence, true));
+                }
                 drop(runtime);
                 if let Some(origin) = detonated {
                     raise(

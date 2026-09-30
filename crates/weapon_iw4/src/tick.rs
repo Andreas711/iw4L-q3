@@ -138,7 +138,6 @@ pub struct CapturedCombatInput {
     pub dual_mag: Option<crate::reload::DualMagTimes>,
 }
 
-/// Map units; zero where the weapon sets none.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AimAssistRanges {
     pub auto_aim: f32,
@@ -738,6 +737,9 @@ pub fn ads_fire_only_delay_ms(frac: f32, ads_in_rate: f32) -> i32 {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WeaponTickEvent {
+    Detonated {
+        weapon: u32,
+    },
     ShotAccepted {
         ammo_used: i32,
     },
@@ -813,6 +815,16 @@ pub fn weapon_ordinary(
     }
 
     if facts.fire_time_ms <= 0 && hand.weapon != 0 {
+        if matches!(
+            WeaponState::from_i32(hand.weaponstate),
+            Ok(WeaponState::Raising | WeaponState::RaisingAltswitch)
+        ) {
+            hand.weapon_time = (hand.weapon_time - cmd.msec).max(0);
+            if hand.weapon_time == 0 {
+                hand.weaponstate = WeaponState::Ready as i32;
+                crate::weap_anim::weapon_idle_weap_anim(&mut hand.weap_anim, cmd.pm_type);
+            }
+        }
         let delayed_action = decay_offhand_family_timers(hand, cmd.msec);
         if let Some(prepare) = crate::offhand::weapon_check_for_offhand(hand, cmd) {
             return Some(prepare);
@@ -825,7 +837,45 @@ pub fn weapon_ordinary(
         Err(_) => return None,
     };
 
-    let fire_mask = get_weapon_fire_button(cmd.last_weapon_hand, i32::from(hand.hand_index));
+    let detonator = cmd
+        .offhand
+        .inventory
+        .iter()
+        .find(|row| row.weapon == hand.weapon && row.has_detonator)
+        .copied();
+    if hand.weaponstate == WeaponState::Detonating as i32 {
+        let before = hand.weapon_delay;
+        hand.weapon_time = (hand.weapon_time - cmd.msec).max(0);
+        hand.weapon_delay = (hand.weapon_delay - cmd.msec).max(0);
+        if before > 0 && hand.weapon_delay == 0 {
+            return Some(WeaponTickEvent::Detonated {
+                weapon: hand.weapon,
+            });
+        }
+        if hand.weapon_time == 0 {
+            hand.weaponstate = WeaponState::Ready as i32;
+            crate::weap_anim::weapon_idle_weap_anim(&mut hand.weap_anim, cmd.pm_type);
+        }
+        return None;
+    }
+    if let Some(row) = detonator.filter(|_| {
+        hand.weaponstate == WeaponState::Ready as i32
+            && cmd.buttons & playerstate_iw4::buttons::ATTACK != 0
+    }) {
+        hand.weaponstate = WeaponState::Detonating as i32;
+        hand.weapon_time = row.detonate_time_ms.max(1);
+        hand.weapon_delay = row.detonate_delay_ms.max(1);
+        crate::weap_anim::start_weapon_anim(
+            &mut hand.weap_anim,
+            crate::weap_anim::weap_anim_event::DETONATE,
+        );
+        return None;
+    }
+    let fire_mask = if detonator.is_some() {
+        playerstate_iw4::buttons::THROW
+    } else {
+        get_weapon_fire_button(cmd.last_weapon_hand, i32::from(hand.hand_index))
+    };
     let attack = cmd.buttons & fire_mask != 0;
     let was_attack = cmd.old_buttons & fire_mask != 0;
     let time_before = hand.weapon_time;
@@ -987,6 +1037,7 @@ pub fn weapon_ordinary(
             | WeaponState::OffhandPrepare
             | WeaponState::OffhandHold
             | WeaponState::OffhandStart
+            | WeaponState::Offhand
             | WeaponState::OffhandEnd,
         ) => {
             event = crate::offhand::weapon_advance_offhand(hand, cmd, delayed_action);
@@ -996,7 +1047,6 @@ pub fn weapon_ordinary(
             WeaponState::MeleeInit
             | WeaponState::MeleeFire
             | WeaponState::MeleeEnd
-            | WeaponState::Offhand
             | WeaponState::Detonating
             | WeaponState::StunnedStart
             | WeaponState::StunnedLoop

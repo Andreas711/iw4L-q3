@@ -12,10 +12,10 @@ use crate::anim::fpv_pose::{
 };
 use crate::anim::xmodel_pose::{FpvSurfOwner, SkinLayout, build_skin_layout, skin_packed_into};
 use crate::draw::FpvSurfaceDraw;
-use anim_iw4::surface_hidden;
 use anim_iw4::PartBits;
-use asset_model::FpvMeshCatalog;
+use anim_iw4::surface_hidden;
 use asset_game::{FpvAssembly, FpvClipTracks, FpvPartRole};
+use asset_model::FpvMeshCatalog;
 use xmodel_runtime::AnimInstance;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -217,7 +217,7 @@ pub struct PreparedFpvComposition {
 fn surf_owner(role: FpvPartRole) -> FpvSurfOwner {
     match role {
         FpvPartRole::Hands => FpvSurfOwner::Hands,
-        FpvPartRole::Gun => FpvSurfOwner::Gun,
+        FpvPartRole::Gun | FpvPartRole::Knife => FpvSurfOwner::Gun,
         FpvPartRole::Attachment => FpvSurfOwner::Scope,
         FpvPartRole::Rocket => FpvSurfOwner::Rocket,
     }

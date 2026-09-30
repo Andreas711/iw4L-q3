@@ -1735,6 +1735,17 @@ fn register_level(registry: &mut NativeRegistry) {
 fn register_weapon_facts(registry: &mut NativeRegistry) {
     use Namespace::Function;
 
+    registry.register(Function, "isweapondetonationtimed", |world, _, args| {
+        let name = string(args, 0)?;
+        let frame = crate::frame::FrameWorld::from_world(world);
+        let weapon = crate::script_player::weapon_named(&frame, &name)?;
+        Ok(Value::Int(
+            frame
+                .equipment_facts_for(weapon)
+                .is_some_and(|facts| facts.timed_detonation)
+                .into(),
+        ))
+    });
     registry.register(Function, "weaponclass", |world, _, args| {
         Ok(enum_name(
             WEAPON_CLASSES,

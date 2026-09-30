@@ -85,6 +85,7 @@ entity_events! {
     ROCKET_EXPLODE_NOMARKS = 0x4a;
     FLASHBANG_EXPLODE = 0x4b;
     PLAY_FX = 0x53;
+    DETONATE = 0x5e;
     OBITUARY = 0x62;
     FOOTSTEP_SPRINT = 0x6b;
     FOOTSTEP_RUN = 0x6c;
@@ -250,6 +251,7 @@ pub fn entity_event_action(
         | EntityEventKind::RECHAMBER_WEAPON
         | EntityEventKind::PREP_OFFHAND
         | EntityEventKind::USE_OFFHAND
+        | EntityEventKind::DETONATE
         | EntityEventKind::MELEE_SWIPE
         | EntityEventKind::MELEE_HIT
         | EntityEventKind::MELEE_MISS => EntityEventAction::Sound,

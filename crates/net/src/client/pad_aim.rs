@@ -1,22 +1,18 @@
 use super::input::ClientActionInput;
 
-/// Degrees a second at full deflection.
 const TURN_YAW: f32 = 260.0;
 const TURN_PITCH: f32 = 90.0;
 const TURN_YAW_ADS: f32 = 90.0;
 const TURN_PITCH_ADS: f32 = 55.0;
-/// Degrees a second squared.
 const TURN_ACCEL: f32 = 1200.0;
 
 const SLOWDOWN_HIP: f32 = 0.4;
 const SLOWDOWN_ADS: f32 = 0.5;
-/// Full width and height on the 640 by 480 virtual screen.
 const SLOWDOWN_REGION: [f32; 2] = [90.0, 90.0];
 const LOCKON_REGION: [f32; 2] = [90.0, 90.0];
 const AUTOAIM_REGION: [f32; 2] = [160.0, 120.0];
 const LOCKON_STRENGTH: f32 = 0.6;
 const LOCKON_DEFLECTION: f32 = 0.05;
-/// Degrees a second, for at most `AUTOAIM_TIME` seconds.
 const AUTOAIM_LERP: f32 = 40.0;
 const AUTOAIM_TIME: f32 = 0.5;
 

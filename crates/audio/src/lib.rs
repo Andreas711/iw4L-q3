@@ -1,5 +1,6 @@
 mod aliases;
 mod ambient;
+mod attenuation;
 mod backend;
 mod clip_store;
 mod emit;
