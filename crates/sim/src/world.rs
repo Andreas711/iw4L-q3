@@ -1247,7 +1247,7 @@ impl SimState {
     }
 
     fn recompute_content_digest(&mut self) {
-        self.content_digest = crate::content::content_digest_v2(
+        self.content_digest = crate::content::content_digest(
             &self.content.data.weapon_combat,
             &self.content.data.weapon_runnable,
             &self.content.data.weapon_transition_groups,
@@ -1256,7 +1256,7 @@ impl SimState {
             &self.content.data.clip_brushes,
             &self.entity_collision_capabilities,
         );
-        self.content_components = crate::content::content_components_v2(
+        self.content_components = crate::content::content_components(
             &self.content.data.weapon_combat,
             &self.content.data.weapon_runnable,
             &self.content.data.weapon_transition_groups,

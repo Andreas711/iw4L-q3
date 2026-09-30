@@ -16,7 +16,6 @@ bevy-trace = ["bootstrap/bevy-trace"]
 [dependencies]
 diag.workspace = true
 asset_transport.workspace = true
-assets.workspace = true
 bootstrap = { path = "../bootstrap" }
 
 [lints]
