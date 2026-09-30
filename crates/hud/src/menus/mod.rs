@@ -760,6 +760,18 @@ fn flush_outputs(menus: &mut ScriptMenus, out: &mut MenuOutputs, local: sim::Cli
         return;
     };
     for (menu, response) in menus.responses.drain(..) {
+        if menu.eq_ignore_ascii_case("changeclass")
+            && let Some(slot) = response
+                .strip_prefix("custom")
+                .and_then(|n| n.parse::<usize>().ok())
+                .and_then(|n| n.checked_sub(1))
+                .filter(|slot| *slot < sim::match_state::PERSONAL_CLASS_SLOTS)
+        {
+            out.exec.write(UiExecCommand {
+                text: format!("spawn {slot} &"),
+            });
+            continue;
+        }
         let (Some(menu_field), Some(response_field)) = (
             sim::menu_response_field(&menu),
             sim::menu_response_field(&response),

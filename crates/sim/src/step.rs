@@ -795,8 +795,9 @@ fn apply_actions(world: &mut FrameWorld, tick: Tick, actions: &[(ClientId, Clien
                 request_id,
                 class_id,
                 revision,
+                loadout,
             } => {
-                apply_select_class(world, tick, *id, request_id, class_id, revision);
+                apply_select_class(world, tick, *id, request_id, class_id, revision, loadout);
             }
             ClientAction::GiveWeapon { request_id, weapon } => {
                 apply_give_weapon(world, tick, *id, request_id, weapon);
@@ -1521,16 +1522,11 @@ fn answer_custom_class(world: &mut FrameWorld, id: ClientId, menu: &str, respons
     else {
         return false;
     };
-    let Some(def) = world
-        .bootstrap_ref()
-        .class(crate::ClassId(slot))
-        .filter(|def| !def.locked)
-        .cloned()
-    else {
-        return false;
+    let Some(def) = crate::script::personal_class(world.ecs(), id.0, crate::ClassId(slot)) else {
+        return true;
     };
     if validate_class_content(world, &def).is_err() {
-        return false;
+        return true;
     }
     crate::script::choose_class(world.ecs(), id.0, &def);
     true
@@ -1543,12 +1539,11 @@ fn apply_select_class(
     request_id: u32,
     class_id: crate::ClassId,
     revision: u32,
+    loadout: crate::PersonalClass,
 ) {
-    let accepted = world
-        .bootstrap_ref()
-        .class(class_id)
-        .filter(|def| def.revision == revision)
-        .cloned();
+    let accepted = (class_id.0 < crate::match_state::PERSONAL_CLASS_SLOTS as u32)
+        .then(|| loadout.definition(class_id, revision))
+        .flatten();
     let Some(def) = accepted else {
         diag::info!(
             Sim,
@@ -1569,27 +1564,6 @@ fn apply_select_class(
         );
         return;
     };
-
-    if def.locked {
-        diag::info!(
-            Sim,
-            "class select: rejected client={} id={} rev={} reason=locked_content",
-            id.0,
-            class_id.0,
-            revision
-        );
-        world.push_event(
-            tick,
-            EventAudience::Client(id),
-            SimEvent::ClassRejected {
-                request_id,
-                class_id,
-                revision,
-                reason: crate::ClassRejectReason::LockedContent,
-            },
-        );
-        return;
-    }
 
     if let Err(reason) = validate_class_content(world, &def) {
         diag::info!(
@@ -1630,11 +1604,13 @@ fn validate_class_content(
     world: &FrameWorld,
     def: &crate::ClassDef,
 ) -> Result<(), crate::ClassRejectReason> {
-    let table_len = world.weapon_combat_len();
-    if table_len == 0 {
-        return Ok(());
+    for (slot, perk) in def.perks.iter().copied().enumerate() {
+        if perk != 0 && crate::match_state::perk_slot_from_class_catalog(perk) != Some(slot) {
+            return Err(crate::ClassRejectReason::LockedContent);
+        }
     }
-
+    let max_attachments = if def.perks[0] == 12 { 2 } else { 1 };
+    let table_len = world.weapon_combat_len();
     for id in [def.primary, def.secondary] {
         if id == 0 {
             continue;
@@ -1645,18 +1621,28 @@ fn validate_class_content(
         let Some(row) = world.weapon_combat_row(id) else {
             return Err(crate::ClassRejectReason::UnknownWeaponId);
         };
-        if !row.is_usable() {
+        if !row.is_usable()
+            || !world.weapon_runnable(id)
+            || world
+                .weapon_setup(id)
+                .is_some_and(|setup| setup.attachments.len() > max_attachments)
+        {
             return Err(crate::ClassRejectReason::LockedContent);
         }
     }
-    for id in [def.lethal, def.tactical] {
+    for (slot, id) in [def.lethal, def.tactical].into_iter().enumerate() {
         if id == 0 {
             continue;
         }
         if (id as usize) >= table_len {
             return Err(crate::ClassRejectReason::UnknownWeaponId);
         }
-        if world.offhand_loadout_row(id).is_none() {
+        let Some(facts) = world.offhand_loadout_row(id) else {
+            return Err(crate::ClassRejectReason::LockedContent);
+        };
+        if !world.weapon_runnable(id)
+            || !matches!((slot, facts.offhand_class), (0, 1 | 4 | 5) | (1, 2 | 3))
+        {
             return Err(crate::ClassRejectReason::LockedContent);
         }
     }

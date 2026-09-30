@@ -1452,7 +1452,7 @@ fn install_clip_and_player(
         .iter()
         .enumerate()
         .map(|(index, preset)| {
-            let row = class_row(&preset.into());
+            let row = ClassRow::from(&preset.into());
             project_class(index as u32, &row, weapons, combat, equipment).def
         })
         .collect();
@@ -1510,24 +1510,7 @@ fn install_clip_and_player(
 pub(crate) fn bootstrap_class_rows(host: Option<&HostClassLoadouts>) -> Vec<ClassRow> {
     let fallback = HostClassLoadouts::default();
     let host = host.filter(|h| !h.slots.is_empty()).unwrap_or(&fallback);
-    host.slots.iter().map(class_row).collect()
-}
-
-fn class_row(slot: &frame::HostClassSlot) -> ClassRow {
-    ClassRow {
-        weapons: [
-            slot.primary.clone(),
-            slot.secondary.clone(),
-            slot.lethal.clone(),
-            slot.tactical.clone(),
-        ],
-        attachments: [
-            slot.primary_attachments.clone(),
-            slot.secondary_attachments.clone(),
-        ],
-        perks: slot.perks.clone(),
-        deathstreak: slot.deathstreak.clone(),
-    }
+    host.slots.iter().map(ClassRow::from).collect()
 }
 
 fn install_shocks(

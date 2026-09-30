@@ -5,7 +5,7 @@ Two players through the master: [`make duo`](DUO.md).
 
 ```bash
 set -a; . ./.env; set +a          # IW4L_GAMES; DISPLAY=:0 if the session has none
-make map mp_boneyard CMDS='spawn assault; wait 2s; quit'
+make map mp_boneyard CMDS='spawn 0; wait 2s; quit'
 cargo run --profile play -p launcher -- map iw5:mp_overwatch --cmds '…'
 ```
 
@@ -18,7 +18,7 @@ scenario`, `chaos`, `bench` ([`BENCH.md`](BENCH.md)), `bench-live`, `lifecycle-*
 **GSC controls the start freeze.** `freezecontrols` constrains authority movement;
 snapshots carry the same constraints into client prediction and command replay.
 Wait for the loaded mode's countdown, or use the debug command:
-`wait world; spawn assault; force_match_start; wait 1s; …`.
+`wait world; spawn 0; force_match_start; wait 1s; …`.
 Firing, hit and decal probes must start after the countdown releases the player.
 
 **Sync by default.** Ritual `wait`s are unnecessary: a command holds the FIFO
@@ -59,7 +59,8 @@ received plus its own presented state; `demo LATEST` plays it back.
 * `look` without `LookState` only writes `ps.viewangles` — no aiming;
 * `give` takes a namespace: `give t5:weapon/psg1_acog`, `give iw5:weapon/msr`.
 * custom classes live in `iw4l-artifacts/profile/classes.txt` (one tab-separated
-  row per class); delete it to get the presets back.
+  row per class); `spawn 0` selects the first slot. Delete the file to generate
+  five available classes again.
 
 Video settings include brightness (50–150%, neutral 100%) and FOV (65–120°)
 sliders. Drag with the mouse or use Left/Right on the focused slider; the value

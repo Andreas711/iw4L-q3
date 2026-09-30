@@ -3,7 +3,7 @@ use crate::spawn::{AuthoredSpawnPoint, MatchBootstrap};
 use crate::world::SimBrush;
 use weapon_iw4::WeaponCombatFacts;
 
-pub const CONTENT_DIGEST_SCHEME: u64 = 15;
+pub const CONTENT_DIGEST_SCHEME: u64 = 16;
 
 #[derive(Clone, Copy)]
 struct Digest(u64);
@@ -166,26 +166,12 @@ fn hash_weapon_admission(h: &mut Digest, runnable: &[bool], transition_groups: &
     }
 }
 
-fn hash_classes(h: &mut Digest, classes: &[ClassDef]) {
-    h.u64(classes.len() as u64);
-    for c in classes {
-        h.u32(c.id.0);
-        h.u32(c.revision);
-        h.u32(c.primary);
-        h.u32(c.secondary);
-        for id in c.primary_attachments {
-            h.u32(id);
-        }
-        for id in c.secondary_attachments {
-            h.u32(id);
-        }
-        h.u32(c.lethal);
-        h.u32(c.tactical);
-        for id in c.perks {
-            h.u32(id);
-        }
-        h.bytes(c.deathstreak.as_bytes());
-        h.bool(c.locked);
+fn hash_class_catalog(h: &mut Digest) {
+    for perk in crate::match_state::CLASS_CATALOG_PERKS {
+        h.bytes(perk.as_bytes());
+    }
+    for streak in crate::match_state::CLASS_CATALOG_DEATHSTREAKS {
+        h.bytes(streak.as_bytes());
     }
 }
 
@@ -263,7 +249,7 @@ pub fn content_digest_v1(
     let mut h = Digest::new();
     h.u64(CONTENT_DIGEST_SCHEME);
     hash_combat(&mut h, combat);
-    hash_classes(&mut h, &bootstrap.classes);
+    hash_class_catalog(&mut h);
     hash_spawns(&mut h, &bootstrap.spawns);
     hash_collision(&mut h, clip_brushes);
     h.finish()
@@ -328,7 +314,7 @@ pub fn content_digest_v2(
     hash_combat(&mut h, combat);
     hash_weapon_admission(&mut h, runnable, transition_groups);
     hash_equipment(&mut h, equipment);
-    hash_classes(&mut h, &bootstrap.classes);
+    hash_class_catalog(&mut h);
     hash_spawns(&mut h, &bootstrap.spawns);
     hash_collision(&mut h, clip_brushes);
     hash_script_models(&mut h, script_models);
@@ -375,7 +361,7 @@ pub fn content_components_v2(
     hash_equipment(&mut weapons, equipment);
 
     let mut classes = component(b'C');
-    hash_classes(&mut classes, &bootstrap.classes);
+    hash_class_catalog(&mut classes);
 
     ContentComponents {
         map: map.finish(),

@@ -383,11 +383,19 @@ pub(crate) fn encode_action(out: &mut WireWriter, action: &ClientAction) {
             request_id,
             class_id,
             revision,
+            loadout,
         } => {
             out.put_u8(1);
             out.put_u32(request_id);
             out.put_u32(class_id.0);
             out.put_u32(revision);
+            for weapon in loadout.weapons {
+                out.put_u32(weapon);
+            }
+            for perk in loadout.perks {
+                out.put_u32(perk);
+            }
+            out.put_u8(loadout.deathstreak);
         }
         ClientAction::GiveWeapon { request_id, weapon } => {
             out.put_u8(6);
@@ -506,6 +514,16 @@ pub(crate) fn decode_action(input: &mut WireReader<'_>) -> Result<ClientAction, 
             request_id: input.get_u32()?,
             class_id: ClassId(input.get_u32()?),
             revision: input.get_u32()?,
+            loadout: sim::PersonalClass {
+                weapons: [
+                    input.get_u32()?,
+                    input.get_u32()?,
+                    input.get_u32()?,
+                    input.get_u32()?,
+                ],
+                perks: [input.get_u32()?, input.get_u32()?, input.get_u32()?],
+                deathstreak: input.get_u8()?,
+            },
         }),
         2 => Ok(ClientAction::JoinMatch {
             request_id: input.get_u32()?,

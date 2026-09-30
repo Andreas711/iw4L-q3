@@ -281,6 +281,8 @@ fn dispatch_entity_events(
                     event: ev.event,
                     payload: EntityEventPayload {
                         number,
+                        other_entity_num: next_state.other_entity_num,
+                        attacker_entity_num: next_state.attacker_entity_num,
                         event_parm: ev.event_parm,
                         origin,
                         surf_type: (ev.event_parm & 0x1f) as u8,
@@ -331,7 +333,7 @@ fn dispatch_entity_events(
 
         let entity = match resolved {
             Some(entity) => entity,
-            None if origin_space_without_centity(record.event) => Entity::PLACEHOLDER,
+            None if event_without_centity(record.event) => Entity::PLACEHOLDER,
             None => {
                 target_gaps.raise(NetGapCause::EventNumberHasNoEntity { number });
                 continue;
@@ -457,9 +459,11 @@ fn dispatch_classified(
     }
 }
 
-fn origin_space_without_centity(event: EntityEventKind) -> bool {
-    matches!(entity_event_action(event), Ok(EntityEventAction::PlayFx))
-        || event == EntityEventKind::SOUND_ALIAS
+fn event_without_centity(event: EntityEventKind) -> bool {
+    matches!(
+        entity_event_action(event),
+        Ok(EntityEventAction::PlayFx | EntityEventAction::Obituary)
+    ) || event == EntityEventKind::SOUND_ALIAS
         || event == EntityEventKind::SOUND_ALIAS_AS_MASTER
 }
 

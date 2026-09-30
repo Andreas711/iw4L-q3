@@ -184,30 +184,43 @@ pub(crate) fn apply_master_volume(
 
 pub(crate) fn sync_player_name(
     settings: Res<frame::GameSettings>,
-    mut installed: MessageReader<frame::MatchInstalled>,
+    generation: Res<frame::WorldGeneration>,
+    has_world: Res<frame::HasWorld>,
+    role: Res<frame::RuntimeRole>,
     local: Option<Res<net::LocalPresentClient>>,
+    link: Option<Res<net::UdpClientLink>>,
     mut inbox: Option<ResMut<net::ClientActionInbox>>,
     mut seq: ResMut<net::ActionRequestIds>,
+    mut sent: Local<Option<(frame::WorldGeneration, sim::ClientId, [u8; 16])>>,
 ) {
-    let installed_now = installed.read().next().is_some();
-    if !settings.is_changed() && !installed_now {
+    if !has_world.0 || *role == frame::RuntimeRole::Replay {
+        *sent = None;
         return;
     }
     let (Some(local), Some(inbox)) = (local, inbox.as_deref_mut()) else {
         return;
     };
+    if let Some(link) = link
+        && (link.connection.is_none()
+            || link.assigned_client != Some(local.0)
+            || !link.has_entered_match())
+    {
+        *sent = None;
+        return;
+    }
+    let name = entity_iw4::pack_client_state_name(&settings.player_name);
+    let next = (*generation, local.0, name);
+    if sent.as_ref() == Some(&next) {
+        return;
+    }
     let request_id = seq.allocate();
-    if let Err(error) = inbox.push(
-        local.0,
-        sim::ClientAction::SetName {
-            request_id,
-            name: entity_iw4::pack_client_state_name(&settings.player_name),
-        },
-    ) {
+    if let Err(error) = inbox.push(local.0, sim::ClientAction::SetName { request_id, name }) {
         diag::warn!(
             Console,
             "name: request_id={request_id} not queued — {error}"
         );
+    } else {
+        *sent = Some(next);
     }
 }
 

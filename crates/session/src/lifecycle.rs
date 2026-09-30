@@ -564,10 +564,8 @@ fn connection_notice(reason: &str) -> String {
         .strip_prefix("handshake rejected: ")
         .or_else(|| reason.strip_prefix("join admission: "))
         .unwrap_or(reason);
-    let message = if reason.starts_with("class/loadout table mismatch")
-        || reason.starts_with("class table mismatch")
-    {
-        "Your classes/loadouts differ from the host's. Use the same class setup as the host, then reconnect."
+    let message = if reason.starts_with("class catalog mismatch") {
+        "Your class rules differ from the host's. Both players need the same game build."
     } else if reason.starts_with("map content mismatch") {
         "Your map data differs from the host's. Both players need the same map data to join."
     } else if reason.starts_with("weapon table mismatch") {

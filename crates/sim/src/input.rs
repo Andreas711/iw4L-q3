@@ -22,6 +22,7 @@ pub enum ClientAction {
         request_id: ActionRequestId,
         class_id: ClassId,
         revision: u32,
+        loadout: crate::PersonalClass,
     },
 
     GiveWeapon {

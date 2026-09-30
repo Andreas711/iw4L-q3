@@ -116,6 +116,7 @@ pub(crate) fn restart_level(world: &mut World, tick: crate::Tick) {
         .collect();
     let dvars = runtime.dvars.clone();
     let weapon_bridge = runtime.weapon_bridge.clone();
+    let personal_classes = runtime.personal_classes.clone();
     let next_presence = runtime.next_spawned_presence;
     let huds: Vec<u64> = runtime.hud_slots.keys().copied().collect();
     let clients: Vec<u32> = runtime.players.keys().copied().collect();
@@ -165,6 +166,7 @@ pub(crate) fn restart_level(world: &mut World, tick: crate::Tick) {
     let mut runtime = world.resource_mut::<Runtime>();
     runtime.dvars = dvars;
     runtime.weapon_bridge = weapon_bridge;
+    runtime.personal_classes = personal_classes;
     runtime.next_spawned_presence = next_presence;
     runtime.restored_pers = pers;
     for (name, value) in game {

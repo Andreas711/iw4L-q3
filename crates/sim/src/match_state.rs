@@ -30,8 +30,9 @@ pub use events::{
     SIM_EVENT_ROSTER, SimEvent, SimEventRow, UNRELIABLE_SIM_EVENT_COUNT, sim_event_is_reliable,
 };
 pub use loadout::{
-    CLASS_CATALOG_PERKS, ClassDef, ClassRejectReason, ConfigurationChangeRejectReason,
-    GiveRejectReason, LoadoutSpec,
+    CLASS_CATALOG_DEATHSTREAKS, CLASS_CATALOG_PERKS, ClassDef, ClassRejectReason,
+    ConfigurationChangeRejectReason, GiveRejectReason, LoadoutSpec, PERSONAL_CLASS_SLOTS,
+    PersonalClass,
 };
 pub fn class_catalog_perk_name(id: u32) -> Option<&'static str> {
     CLASS_CATALOG_PERKS

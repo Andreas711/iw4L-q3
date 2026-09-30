@@ -97,10 +97,10 @@ pub use match_state::{
     ConfigurationChangeRejectReason, DroppedItemAmmo, EntityEventPayload, EntityEventRecord,
     EventAudience, EventRecord, GiveRejectReason, HealthRegenCensus, InputReceipt,
     ItemPickupRecord, KillcamHud, LoadoutSpec, LocationSelection, MENU_COMMAND_TAIL,
-    MatchEndReason, MenuCommand, MenuCommandKind, PelletFxRecord, RadarMode, RemoteMissile,
-    RngDebugMeta, SIM_EVENT_ROSTER, ScriptControls, ScriptDepthOfField, ScriptDvars, ScriptSeat,
-    SimEvent, SimEventRow, SnapshotMeta, UNRELIABLE_SIM_EVENT_COUNT, ViewEffects, VisionChange,
-    sim_event_is_reliable,
+    MatchEndReason, MenuCommand, MenuCommandKind, PelletFxRecord, PersonalClass, RadarMode,
+    RemoteMissile, RngDebugMeta, SIM_EVENT_ROSTER, ScriptControls, ScriptDepthOfField, ScriptDvars,
+    ScriptSeat, SimEvent, SimEventRow, SnapshotMeta, UNRELIABLE_SIM_EVENT_COUNT, ViewEffects,
+    VisionChange, sim_event_is_reliable,
 };
 pub use player_anim_script::{
     AnimConditions, AnimScriptCommand, AnimScriptCondition, AnimScriptItem, PlayerAnimScript,

@@ -359,6 +359,13 @@ impl Runner<'_, '_> {
         diag::info!(Ui, "menu open: {}", def.name);
         let name = def.name.clone();
         self.run_events(&name, None, &def.handlers.open);
+        if self
+            .menus
+            .get_mut(&name)
+            .is_some_and(|open| open.focus.is_none())
+        {
+            self.focus_step(&name, 1, true);
+        }
     }
 
     pub(crate) fn close(&mut self, name: &str) {

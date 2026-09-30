@@ -380,8 +380,17 @@ impl ClientPrediction {
         if self.history.is_empty() {
             return;
         }
-        self.history.clear();
+        self.drop_history();
         self.metrics.forced_adopts += 1;
+    }
+
+    /// The floor lets stale acks for the dropped commands retire; read as
+    /// `Broken` they would drop every later window too, for good.
+    fn drop_history(&mut self) {
+        if let Some(cmd) = self.last_cmd {
+            self.replay_floor = Some((CmdSeq(self.next_seq.0.wrapping_sub(1)), cmd));
+        }
+        self.history.clear();
     }
 
     pub fn retire_acks(&mut self, ack: Option<CmdSeq>) {
@@ -417,16 +426,20 @@ impl ClientPrediction {
                 AckMatch::Broken => {
                     outcome.forced_adopt = true;
                     self.metrics.forced_adopts += 1;
-                    self.history.clear();
+                    self.drop_history();
                     None
                 }
             },
+            None if self.history.is_empty() => {
+                self.snapshots_since_ack = 0;
+                None
+            }
             None => {
                 self.snapshots_since_ack = self.snapshots_since_ack.saturating_add(1);
-                if self.snapshots_since_ack > MAX_UNACKED_SNAPSHOTS && !self.history.is_empty() {
+                if self.snapshots_since_ack > MAX_UNACKED_SNAPSHOTS {
                     outcome.forced_adopt = true;
                     self.metrics.forced_adopts += 1;
-                    self.history.clear();
+                    self.drop_history();
                     self.snapshots_since_ack = 0;
                 }
                 None

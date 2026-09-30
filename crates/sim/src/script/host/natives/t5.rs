@@ -403,13 +403,10 @@ fn stats_number(world: &World, reference: &str) -> i32 {
     stats_cell(world, reference, 0).map_or(0, |n| super::iw4::atoi(&n))
 }
 
-fn profile_item(world: &mut World, class: &str, slot: &str) -> i32 {
-    let Some(def) = profile_class(class).and_then(|id| {
-        FrameWorld::from_world(world)
-            .bootstrap_ref()
-            .class(id)
-            .cloned()
-    }) else {
+fn profile_item(world: &mut World, client: u32, class: &str, slot: &str) -> i32 {
+    let Some(def) = profile_class(class)
+        .and_then(|id| super::super::players::personal_class(world, client, id))
+    else {
         return 0;
     };
     let weapon_slot = |prefix: &str| slot.strip_prefix(prefix).map(|rest| rest.to_owned());
@@ -821,8 +818,8 @@ fn register_script(registry: &mut NativeRegistry) {
         |world, receiver, args| {
             let class = string(args, 0)?;
             let slot = string(args, 1)?.to_ascii_lowercase();
-            player_id(world, receiver)?;
-            Ok(Value::Int(profile_item(world, &class, &slot)))
+            let client = player_id(world, receiver)?;
+            Ok(Value::Int(profile_item(world, client, &class, &slot)))
         },
     );
     registry.register(Method, "setenemymodel", |world, receiver, args| {
