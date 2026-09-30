@@ -1,4 +1,4 @@
-use bevy::input::gamepad::{Gamepad, GamepadButton, GamepadConnection, GamepadConnectionEvent};
+use bevy::input::gamepad::{Gamepad, GamepadAxis, GamepadButton, GamepadConnection, GamepadEvent};
 use bevy::prelude::*;
 use frame::{UiMenuKey, UiMenuRequest};
 
@@ -67,35 +67,112 @@ pub(crate) fn shaped_look(look: Vec2, settings: &frame::GameSettings) -> Vec2 {
     )
 }
 
+#[derive(Default)]
+pub(crate) struct PadActivity {
+    axes: std::collections::HashMap<(Entity, GamepadAxis), f32>,
+    buttons: std::collections::HashMap<(Entity, GamepadButton), f32>,
+}
+
 pub(crate) fn track_active_pad(
     gamepads: Query<(Entity, &Gamepad, Option<&Name>)>,
-    mut connections: MessageReader<GamepadConnectionEvent>,
+    mut events: MessageReader<GamepadEvent>,
     mut active: ResMut<frame::ActivePad>,
+    mut devices: ResMut<frame::InputDevices>,
+    settings: Res<frame::GameSettings>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut activity: Local<PadActivity>,
 ) {
-    for event in connections.read() {
-        match &event.connection {
-            GamepadConnection::Connected { name, .. } => {
-                diag::info!(Ui, "controller connected: {name}");
-            }
-            GamepadConnection::Disconnected => {
-                diag::info!(Ui, "controller disconnected");
-            }
-        }
-    }
+    devices.focused = windows.single().map_or(true, |window| window.focused);
     if active.0.is_some_and(|entity| gamepads.get(entity).is_err()) {
         active.0 = None;
     }
-    for (entity, pad, name) in &gamepads {
-        let moved = pad.left_stick().length() > 0.5 || pad.right_stick().length() > 0.5;
-        if (pad.get_just_pressed().next().is_some() || moved) && active.0 != Some(entity) {
-            diag::info!(
-                Ui,
-                "controller in use: {}",
-                name.map_or("unnamed", |n| n.as_str())
-            );
+    let PadActivity { axes, buttons } = &mut *activity;
+    axes.retain(|(entity, _), _| gamepads.contains(*entity));
+    buttons.retain(|(entity, _), _| gamepads.contains(*entity));
+    let mut connected = std::collections::HashSet::new();
+    for event in events.read() {
+        let activity = match event {
+            GamepadEvent::Connection(event) => {
+                if matches!(event.connection, GamepadConnection::Connected { .. }) {
+                    connected.insert(event.gamepad);
+                }
+                if matches!(event.connection, GamepadConnection::Disconnected) {
+                    axes.retain(|(entity, _), _| *entity != event.gamepad);
+                    buttons.retain(|(entity, _), _| *entity != event.gamepad);
+                    if active.0 == Some(event.gamepad) {
+                        active.0 = None;
+                    }
+                }
+                if matches!(event.connection, GamepadConnection::Connected { .. })
+                    && let Ok((_, pad, _)) = gamepads.get(event.gamepad)
+                {
+                    for axis in [
+                        GamepadAxis::LeftStickX,
+                        GamepadAxis::LeftStickY,
+                        GamepadAxis::RightStickX,
+                        GamepadAxis::RightStickY,
+                    ] {
+                        axes.insert((event.gamepad, axis), pad.get(axis).unwrap_or(0.0));
+                    }
+                }
+                None
+            }
+            GamepadEvent::Button(event) => {
+                let previous = buttons
+                    .insert((event.entity, event.button), event.value)
+                    .unwrap_or(0.0);
+                (event.value >= 0.55 && previous < 0.55).then_some(event.entity)
+            }
+            GamepadEvent::Axis(event) => {
+                let previous = axes.entry((event.entity, event.axis)).or_insert(0.0);
+                let deadzone = match event.axis {
+                    GamepadAxis::LeftStickX | GamepadAxis::LeftStickY => settings.pad_deadzone_left,
+                    _ => settings.pad_deadzone_right,
+                }
+                .max(0.15);
+                let meaningful =
+                    event.value.abs() > deadzone + 0.08 && (event.value - *previous).abs() > 0.12;
+                if meaningful || event.value.abs() < deadzone {
+                    *previous = event.value;
+                }
+                meaningful.then_some(event.entity)
+            }
+        };
+        if let Some(entity) = activity.filter(|entity| {
+            devices.focused && !connected.contains(entity) && gamepads.contains(*entity)
+        }) {
             active.0 = Some(entity);
+            devices.pad_prompts = true;
         }
     }
+    if active.0.is_none() {
+        devices.pad_prompts = false;
+    }
+    devices.style = match settings.pad_prompts {
+        1 => frame::PromptStyle::Xbox,
+        2 => frame::PromptStyle::PlayStation,
+        3 => frame::PromptStyle::Generic,
+        _ => active
+            .0
+            .and_then(|entity| gamepads.get(entity).ok())
+            .map_or(frame::PromptStyle::Generic, |(_, pad, name)| {
+                let name = name.map_or("", |name| name.as_str()).to_ascii_lowercase();
+                if pad.vendor_id() == Some(0x054c)
+                    || name.contains("dualshock")
+                    || name.contains("dualsense")
+                    || name == "wireless controller"
+                {
+                    frame::PromptStyle::PlayStation
+                } else if pad.vendor_id() == Some(0x045e)
+                    || name.contains("xbox")
+                    || name.contains("xinput")
+                {
+                    frame::PromptStyle::Xbox
+                } else {
+                    frame::PromptStyle::Generic
+                }
+            }),
+    };
 }
 
 const REPEAT_DELAY: f32 = 0.4;
@@ -105,12 +182,19 @@ pub(crate) fn drive_menus_with_pad(
     gamepads: Query<&Gamepad>,
     active: Res<frame::ActivePad>,
     script_menus: Option<Res<hud::ScriptMenus>>,
-    capture: Res<frame::UiBindingCapture>,
+    (devices, console, capture): (
+        Res<frame::InputDevices>,
+        Res<crate::ConsoleState>,
+        Res<frame::UiBindingCapture>,
+    ),
     time: Res<Time>,
     mut requests: MessageWriter<UiMenuRequest>,
     mut repeat: Local<Option<(UiMenuKey, f32)>>,
 ) {
-    // A binding being listened for takes the controller's buttons itself.
+    if !devices.focused || console.open {
+        *repeat = None;
+        return;
+    }
     let pad = active
         .0
         .and_then(|entity| gamepads.get(entity).ok())
@@ -121,6 +205,8 @@ pub(crate) fn drive_menus_with_pad(
     };
     if pad.just_pressed(GamepadButton::Start) {
         requests.write(UiMenuRequest::Key(UiMenuKey::Escape));
+        *repeat = None;
+        return;
     }
     if !script_menus.is_some_and(|menus| menus.captures_input()) {
         *repeat = None;

@@ -114,7 +114,6 @@ pub(crate) fn consume_menu_binding(
         view.revision = view.revision.wrapping_add(1);
         return;
     }
-    // Start cancels, as Escape does, rather than binding.
     if keys.just_pressed(KeyCode::Escape) || pad_start {
         capture.command = None;
         capture.consumed_input = true;
@@ -150,17 +149,20 @@ pub(crate) fn consume_menu_binding(
 
 pub(crate) fn sync_binding_view(
     binds: Res<KeyBinds>,
+    devices: Res<frame::InputDevices>,
     mut view: ResMut<ui::BindingView>,
     mut dvars: ResMut<frame::UiMenuDvars>,
+    mut style: Local<Option<frame::PromptStyle>>,
 ) {
-    if !binds.is_changed() {
+    if !binds.is_changed() && *style == Some(devices.style) {
         return;
     }
+    *style = Some(devices.style);
     let mut chords = std::collections::BTreeMap::<u32, (Vec<String>, Vec<String>)>::new();
     for (button, id) in binds.iter() {
         let (keys, buttons) = chords.entry(id).or_default();
         match button {
-            BindButton::Pad(pad) => buttons.push(pad.label().to_owned()),
+            BindButton::Pad(pad) => buttons.push(pad.prompt(devices.style).to_owned()),
             _ => keys.push(display_button(button)),
         }
     }
@@ -357,6 +359,7 @@ fn serialize_settings(settings: &frame::GameSettings, binds: &KeyBinds) -> Strin
         format!("pad_invert={}", settings.pad_invert),
         format!("pad_curve={}", settings.pad_curve),
         format!("pad_aim_assist={}", settings.pad_aim_assist),
+        format!("pad_prompts={}", settings.pad_prompts),
         format!("pad_vibration={}", settings.pad_vibration),
         format!("pad_deadzone_left={:.2}", settings.pad_deadzone_left),
         format!("pad_deadzone_right={:.2}", settings.pad_deadzone_right),
@@ -449,6 +452,7 @@ fn parse_settings(source: &str, settings: &mut frame::GameSettings, binds: &mut 
             "pad_invert" => parse_into(value, &mut settings.pad_invert),
             "pad_curve" => parse_into(value, &mut settings.pad_curve),
             "pad_aim_assist" => parse_into(value, &mut settings.pad_aim_assist),
+            "pad_prompts" => parse_into(value, &mut settings.pad_prompts),
             "pad_vibration" => parse_into(value, &mut settings.pad_vibration),
             "pad_deadzone_left" => parse_into(value, &mut settings.pad_deadzone_left),
             "pad_deadzone_right" => parse_into(value, &mut settings.pad_deadzone_right),
@@ -461,7 +465,6 @@ fn parse_settings(source: &str, settings: &mut frame::GameSettings, binds: &mut 
             warn!("settings bind: {warning}");
         }
     }
-    // Settings saved before controller support carry no controller binds.
     if !binds.has_pad_binds() {
         binds.apply_pad_layout(usize::from(settings.pad_layout.min(4)));
     }
@@ -483,6 +486,7 @@ pub(crate) fn native_menu_settings(
     mut shadows: ResMut<render_frontend::prepare::scene::view_parms::SmEnableDvar>,
     mut dof: ResMut<render_frontend::assemble::drawsurf::dof::DofDvars>,
     mut glow: ResMut<render_frontend::assemble::drawsurf::dof::GlowDvars>,
+    mut test_rumble: MessageWriter<frame::TestControllerRumble>,
 ) {
     for command in events.read() {
         if !matches!(command.name.as_str(), "set" | "seta") {
@@ -531,6 +535,12 @@ pub(crate) fn native_menu_settings(
             "ui_pad_invert" => settings.pad_invert = value == "1",
             "ui_pad_curve" => parse_into(value, &mut settings.pad_curve),
             "ui_pad_aim_assist" => parse_into(value, &mut settings.pad_aim_assist),
+            "ui_pad_prompts" => parse_into(value, &mut settings.pad_prompts),
+            "ui_pad_test_rumble" => {
+                if value == "1" {
+                    test_rumble.write(frame::TestControllerRumble);
+                }
+            }
             "ui_pad_vibration" => settings.pad_vibration = value == "1",
             "ui_pad_deadzone_left" => parse_into(value, &mut settings.pad_deadzone_left),
             "ui_pad_deadzone_right" => parse_into(value, &mut settings.pad_deadzone_right),
@@ -567,6 +577,7 @@ pub(crate) fn native_menu_settings(
     dvars.set("ui_pad_invert", if settings.pad_invert { "1" } else { "0" });
     dvars.set("ui_pad_curve", settings.pad_curve.to_string());
     dvars.set("ui_pad_aim_assist", settings.pad_aim_assist.to_string());
+    dvars.set("ui_pad_prompts", settings.pad_prompts.to_string());
     dvars.set(
         "ui_pad_vibration",
         if settings.pad_vibration { "1" } else { "0" },

@@ -38,18 +38,14 @@ pub struct GameSettings {
     pub invert_mouse: bool,
     pub player_name: String,
 
-    /// 0 default, 1 tactical, 2 lefty, 3 bumper jumper, 4 bumper jumper
-    /// tactical, or `PAD_LAYOUT_CUSTOM` once rebound.
     pub pad_layout: u8,
-    /// 0 default, 1 southpaw, 2 legacy, 3 legacy southpaw.
     pub pad_stick_layout: u8,
     pub pad_sensitivity: f32,
     pub pad_ads_sensitivity: f32,
     pub pad_invert: bool,
-    /// 0 standard, 1 linear, 2 dynamic.
     pub pad_curve: u8,
-    /// 0 off, 1 slowdown and lock-on, 2 also auto aim.
     pub pad_aim_assist: u8,
+    pub pad_prompts: u8,
     pub pad_vibration: bool,
     pub pad_deadzone_left: f32,
     pub pad_deadzone_right: f32,
@@ -78,7 +74,8 @@ impl Default for GameSettings {
             pad_ads_sensitivity: 1.0,
             pad_invert: false,
             pad_curve: 0,
-            pad_aim_assist: 1,
+            pad_aim_assist: 0,
+            pad_prompts: 0,
             pad_vibration: true,
             pad_deadzone_left: 0.12,
             pad_deadzone_right: 0.12,
@@ -118,7 +115,8 @@ impl GameSettings {
         }
         self.pad_stick_layout = self.pad_stick_layout.min(3);
         self.pad_curve = self.pad_curve.min(2);
-        self.pad_aim_assist = self.pad_aim_assist.min(2);
+        self.pad_aim_assist = 0;
+        self.pad_prompts = self.pad_prompts.min(3);
         let finite = |v: f32, lo: f32, hi: f32, default: f32| {
             if v.is_finite() {
                 v.clamp(lo, hi)

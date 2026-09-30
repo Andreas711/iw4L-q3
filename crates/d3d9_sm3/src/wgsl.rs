@@ -559,7 +559,11 @@ pub fn lower_pass_to_wgsl(
     write_texture_table_bindings(&mut source, abi);
     let slot_row_base = vertex_constant_len + pixel_constant_len;
 
-    source.push_str("\nstruct Sm3Varyings {\n    @builtin(position) position: vec4<f32>,\n");
+    // Depth-equal passes need identical position evaluation across pipelines,
+    // including the passes that originally write the depth buffer.
+    source.push_str(
+        "\nstruct Sm3Varyings {\n    @builtin(position) @invariant position: vec4<f32>,\n",
+    );
     for varying in &abi.varyings {
         writeln!(
             source,

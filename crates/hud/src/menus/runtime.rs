@@ -491,8 +491,6 @@ impl Runner<'_, '_> {
         self.set_focus(menu, next);
     }
 
-    /// Menu files list items in no particular screen order, so focus moves
-    /// by position: within a column vertically, across columns sideways.
     pub(crate) fn focus_nav(&mut self, menu: &str, dx: i32, dy: i32) -> bool {
         let catalog = self.catalog;
         let Some(def) = catalog.get(menu) else {

@@ -33,10 +33,10 @@ impl BindButton {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PadButton {
-    A,
-    B,
-    X,
-    Y,
+    South,
+    East,
+    West,
+    North,
     LeftBumper,
     RightBumper,
     LeftTrigger,
@@ -47,16 +47,16 @@ pub enum PadButton {
     DpadDown,
     DpadLeft,
     DpadRight,
-    Back,
+    Select,
     Start,
 }
 
 impl PadButton {
     pub const ALL: [Self; 16] = [
-        Self::A,
-        Self::B,
-        Self::X,
-        Self::Y,
+        Self::South,
+        Self::East,
+        Self::West,
+        Self::North,
         Self::LeftBumper,
         Self::RightBumper,
         Self::LeftTrigger,
@@ -67,16 +67,16 @@ impl PadButton {
         Self::DpadDown,
         Self::DpadLeft,
         Self::DpadRight,
-        Self::Back,
+        Self::Select,
         Self::Start,
     ];
 
     pub const fn gamepad_button(self) -> GamepadButton {
         match self {
-            Self::A => GamepadButton::South,
-            Self::B => GamepadButton::East,
-            Self::X => GamepadButton::West,
-            Self::Y => GamepadButton::North,
+            Self::South => GamepadButton::South,
+            Self::East => GamepadButton::East,
+            Self::West => GamepadButton::West,
+            Self::North => GamepadButton::North,
             Self::LeftBumper => GamepadButton::LeftTrigger,
             Self::RightBumper => GamepadButton::RightTrigger,
             Self::LeftTrigger => GamepadButton::LeftTrigger2,
@@ -87,7 +87,7 @@ impl PadButton {
             Self::DpadDown => GamepadButton::DPadDown,
             Self::DpadLeft => GamepadButton::DPadLeft,
             Self::DpadRight => GamepadButton::DPadRight,
-            Self::Back => GamepadButton::Select,
+            Self::Select => GamepadButton::Select,
             Self::Start => GamepadButton::Start,
         }
     }
@@ -100,10 +100,10 @@ impl PadButton {
 
     pub const fn console_name(self) -> &'static str {
         match self {
-            Self::A => "BUTTON_A",
-            Self::B => "BUTTON_B",
-            Self::X => "BUTTON_X",
-            Self::Y => "BUTTON_Y",
+            Self::South => "BUTTON_A",
+            Self::East => "BUTTON_B",
+            Self::West => "BUTTON_X",
+            Self::North => "BUTTON_Y",
             Self::LeftBumper => "BUTTON_LSHLDR",
             Self::RightBumper => "BUTTON_RSHLDR",
             Self::LeftTrigger => "BUTTON_LTRIG",
@@ -114,17 +114,17 @@ impl PadButton {
             Self::DpadDown => "DPAD_DOWN",
             Self::DpadLeft => "DPAD_LEFT",
             Self::DpadRight => "DPAD_RIGHT",
-            Self::Back => "BUTTON_BACK",
+            Self::Select => "BUTTON_BACK",
             Self::Start => "BUTTON_START",
         }
     }
 
     pub const fn label(self) -> &'static str {
         match self {
-            Self::A => "A",
-            Self::B => "B",
-            Self::X => "X",
-            Self::Y => "Y",
+            Self::South => "A",
+            Self::East => "B",
+            Self::West => "X",
+            Self::North => "Y",
             Self::LeftBumper => "LB",
             Self::RightBumper => "RB",
             Self::LeftTrigger => "LT",
@@ -135,8 +135,39 @@ impl PadButton {
             Self::DpadDown => "D-DOWN",
             Self::DpadLeft => "D-LEFT",
             Self::DpadRight => "D-RIGHT",
-            Self::Back => "BACK",
+            Self::Select => "BACK",
             Self::Start => "START",
+        }
+    }
+
+    pub const fn prompt(self, style: frame::PromptStyle) -> &'static str {
+        use frame::PromptStyle::*;
+        match (style, self) {
+            (Xbox, _) => self.label(),
+            (PlayStation, Self::South) => "×",
+            (PlayStation, Self::East) => "○",
+            (PlayStation, Self::West) => "□",
+            (PlayStation, Self::North) => "△",
+            (PlayStation, Self::LeftBumper) => "L1",
+            (PlayStation, Self::RightBumper) => "R1",
+            (PlayStation, Self::LeftTrigger) => "L2",
+            (PlayStation, Self::RightTrigger) => "R2",
+            (PlayStation, Self::LeftStick) => "L3",
+            (PlayStation, Self::RightStick) => "R3",
+            (PlayStation, Self::Select) => "SHARE",
+            (PlayStation, Self::Start) => "OPTIONS",
+            (Generic, Self::South) => "SOUTH",
+            (Generic, Self::East) => "EAST",
+            (Generic, Self::West) => "WEST",
+            (Generic, Self::North) => "NORTH",
+            (Generic, Self::LeftBumper) => "L-BUMPER",
+            (Generic, Self::RightBumper) => "R-BUMPER",
+            (Generic, Self::LeftTrigger) => "L-TRIGGER",
+            (Generic, Self::RightTrigger) => "R-TRIGGER",
+            (Generic, Self::LeftStick) => "L-STICK",
+            (Generic, Self::RightStick) => "R-STICK",
+            (Generic, Self::Select) => "SELECT",
+            _ => self.label(),
         }
     }
 
@@ -152,24 +183,24 @@ pub fn pad_layout(layout: usize) -> Vec<(PadButton, &'static str)> {
         (LeftTrigger, "+speed_throw"),
         (RightBumper, "+frag"),
         (LeftBumper, "+smoke"),
-        (A, "+gostand"),
-        (B, "+stance"),
-        (X, "+usereload"),
-        (Y, "weapnext"),
+        (South, "+gostand"),
+        (East, "+stance"),
+        (West, "+usereload"),
+        (North, "weapnext"),
         (LeftStick, "+breath_sprint"),
         (RightStick, "+melee"),
         (DpadUp, "+actionslot 1"),
         (DpadDown, "+actionslot 2"),
         (DpadLeft, "+actionslot 3"),
         (DpadRight, "+actionslot 4"),
-        (Back, "+scores"),
+        (Select, "+scores"),
     ];
     let mut set = |button: PadButton, command: &'static str| {
         binds.retain(|(b, _)| *b != button);
         binds.push((button, command));
     };
     let tactical = |set: &mut dyn FnMut(PadButton, &'static str)| {
-        set(B, "+melee");
+        set(East, "+melee");
         set(RightStick, "+stance");
     };
     match layout {
@@ -182,7 +213,7 @@ pub fn pad_layout(layout: usize) -> Vec<(PadButton, &'static str)> {
         }
         3 | 4 => {
             set(LeftBumper, "+gostand");
-            set(A, "+smoke");
+            set(South, "+smoke");
             if layout == 4 {
                 tactical(&mut set);
             }

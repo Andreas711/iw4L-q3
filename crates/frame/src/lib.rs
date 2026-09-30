@@ -9,7 +9,7 @@ pub mod settings;
 pub mod ui;
 
 pub use class_presets::{ClassPreset, pick_showcase, showcase_classes};
-pub use pad::ActivePad;
+pub use pad::{ActivePad, InputDevices, PromptStyle, TestControllerRumble};
 pub use retire::Retiring;
 pub use schedule::{
     AUTHORITY_TOC, AuthorityBookkeeping, AuthorityEdge, AuthoritySet, CLIENT_TOC,

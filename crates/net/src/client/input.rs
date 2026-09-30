@@ -166,8 +166,17 @@ pub fn build_usercmd(input: &mut ClientActionInput, look: &LookState, server_tim
         input.fov_scale,
     );
     let (mouse_pitch, mouse_yaw) = mouse_move_angles(mx, my, input.m_yaw, input.m_pitch);
-    let pad_pitch = (input.pad_look_delta[0] * ANGLE2SHORT) as i32;
-    let pad_yaw = (input.pad_look_delta[1] * ANGLE2SHORT) as i32;
+    let mouse_look = input.mouse_x != 0.0 || input.mouse_y != 0.0;
+    let pad_pitch = if mouse_look {
+        0
+    } else {
+        (input.pad_look_delta[0] * ANGLE2SHORT) as i32
+    };
+    let pad_yaw = if mouse_look {
+        0
+    } else {
+        (input.pad_look_delta[1] * ANGLE2SHORT) as i32
+    };
     let forward = (axes.forward + input.pad_move[0]).clamp(-1.0, 1.0);
     let right = (axes.right + input.pad_move[1]).clamp(-1.0, 1.0);
 

@@ -579,18 +579,10 @@
       [
        "Off",
        "0"
-      ],
-      [
-       "Standard",
-       "1"
-      ],
-      [
-       "Full",
-       "2"
       ]
      ],
      "vis_exp": "1",
-     "disabled_exp": "0",
+     "disabled_exp": "1",
      "text_key": "",
      "text_exp": "",
      "text_align_mode": 10,
@@ -859,6 +851,157 @@
       "w": 344,
       "h": 20
      }
+    }
+   },
+   {
+    "index": 27,
+    "fields": {
+     "item_type": 12,
+     "static_flags": 0,
+     "dvar": "ui_pad_prompts",
+     "choices": [
+      [
+       "Auto",
+       "0"
+      ],
+      [
+       "Xbox",
+       "1"
+      ],
+      [
+       "PlayStation",
+       "2"
+      ],
+      [
+       "Generic",
+       "3"
+      ]
+     ],
+     "vis_exp": "1",
+     "disabled_exp": "0",
+     "text_key": "",
+     "text_exp": "",
+     "text_align_mode": 10,
+     "text_align_x": -8,
+     "text_align_y": 0,
+     "fore_color": [
+      1,
+      1,
+      1,
+      1
+     ],
+     "rect": {
+      "x": 232,
+      "y": 228,
+      "w": 344,
+      "h": 20
+     },
+     "handlers": {
+      "action": [
+       {
+        "Script": "play mouse_click;"
+       }
+      ],
+      "focus": [
+       {
+        "Script": "play mouse_over; setItemColor self backcolor 0 0 0 1;"
+       }
+      ],
+      "leave_focus": [
+       {
+        "Script": "setItemColor self backcolor 0 0 0 0;"
+       }
+      ]
+     },
+     "text_scale": 0.375,
+     "style": 1,
+     "background": "menu_button_selection_bar",
+     "back_color": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   },
+   {
+    "index": 28,
+    "fields": {
+     "vis_exp": "1",
+     "text_key": "Controller Prompts",
+     "rect": {
+      "x": 232,
+      "y": 228,
+      "w": 344,
+      "h": 20
+     },
+     "text_scale": 0.32
+    }
+   },
+   {
+    "index": 27,
+    "fields": {
+     "item_type": 1,
+     "static_flags": 0,
+     "vis_exp": "1",
+     "disabled_exp": "0",
+     "text_key": "Test",
+     "text_exp": "",
+     "text_align_mode": 10,
+     "text_align_x": -8,
+     "text_align_y": 0,
+     "fore_color": [
+      1,
+      1,
+      1,
+      1
+     ],
+     "rect": {
+      "x": 232,
+      "y": 248,
+      "w": 344,
+      "h": 20
+     },
+     "handlers": {
+      "action": [
+       {
+        "Script": "set ui_pad_test_rumble 1;"
+       }
+      ],
+      "focus": [
+       {
+        "Script": "play mouse_over; setItemColor self backcolor 0 0 0 1;"
+       }
+      ],
+      "leave_focus": [
+       {
+        "Script": "setItemColor self backcolor 0 0 0 0;"
+       }
+      ]
+     },
+     "text_scale": 0.375,
+     "style": 1,
+     "background": "menu_button_selection_bar",
+     "back_color": [
+      0,
+      0,
+      0,
+      0
+     ]
+    }
+   },
+   {
+    "index": 28,
+    "fields": {
+     "vis_exp": "1",
+     "text_key": "Test Vibration",
+     "rect": {
+      "x": 232,
+      "y": 248,
+      "w": 344,
+      "h": 20
+     },
+     "text_scale": 0.32
     }
    }
   ]
