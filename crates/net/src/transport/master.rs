@@ -840,12 +840,15 @@ fn arm_master_browser(
     browser: Option<Res<MasterBrowser>>,
     mut commands: Commands,
 ) {
+    let MasterLaunchMode::Browser(browser_config) = &intent.0 else {
+        if browser.is_some() {
+            commands.remove_resource::<MasterBrowser>();
+        }
+        return;
+    };
     if browser.is_some() {
         return;
     }
-    let MasterLaunchMode::Browser(browser_config) = &intent.0 else {
-        return;
-    };
     let state = Arc::new(Mutex::new(MasterBrowserSnapshot {
         loading: true,
         have: browser_config.have,

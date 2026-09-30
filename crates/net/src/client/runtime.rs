@@ -1203,7 +1203,8 @@ pub const BACKLOG_STALL_MS: i32 = 1000;
 /// How many stalls the link may take before the session is failed for real. A
 /// hitch costs one and is recovered from; an authority that has genuinely gone
 /// away keeps earning them and fails once they add up.
-pub const BACKLOG_STALLS_BEFORE_FAIL: u32 = 3;
+pub const BACKLOG_STALLS_BEFORE_FAIL: u32 =
+    (master_protocol::SESSION_IDLE.as_millis() / BACKLOG_STALL_MS as u128) as u32 - 1;
 
 #[derive(Debug, Default)]
 pub struct BacklogStalls {
