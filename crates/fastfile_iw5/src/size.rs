@@ -251,6 +251,11 @@ pub const WEAPON_DEF_PROJ_IMPACT_EXPLODE_OFF: usize = 0x78a;
 
 pub const WEAPON_DEF_STICK_TO_PLAYERS_OFF: usize = 0x78b;
 
+pub const WEAPON_DEF_STICKINESS_OFF: usize = 0x530;
+pub const WEAPON_DEF_HAS_DETONATOR_OFF: usize = 0x78e;
+pub const WEAPON_DEF_TIMED_DETONATION_OFF: usize = 0x790;
+pub const WEAPON_DEF_ROTATE_OFF: usize = 0x791;
+
 pub const WEAPON_DEF_RETICLE_CENTER_OFF: usize = 296;
 pub const WEAPON_DEF_RETICLE_SIDE_OFF: usize = 300;
 

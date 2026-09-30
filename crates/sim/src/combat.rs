@@ -302,8 +302,8 @@ pub(crate) fn advance_weapon_command(
                 clip: if last_hand >= 1 { clip1 } else { 0 },
                 stock,
                 shot_count: ps.weapon_shot_count_secondary as u8,
-                burst_latch: false,
-                rechamber_pending: false,
+                burst_latch: meta.burst_latch_secondary,
+                rechamber_pending: meta.rechamber_pending_secondary,
                 delayed_rechamber: false,
                 weapon_restrict_kick_time: ps.weapon_restrict_kick_time_secondary,
                 quick_reload,
@@ -552,6 +552,8 @@ pub(crate) fn advance_weapon_command(
         meta.weapon_shot_count = hand0.shot_count;
         meta.burst_latch = hand0.burst_latch;
         meta.rechamber_pending = hand0.rechamber_pending;
+        meta.burst_latch_secondary = last_hand >= 1 && hands[1].burst_latch;
+        meta.rechamber_pending_secondary = last_hand >= 1 && hands[1].rechamber_pending;
         if facts.dual_mag.is_some() && started_weapon != 0 {
             meta.set_quick_reload_ready(started_weapon, hand0.quick_reload);
         }

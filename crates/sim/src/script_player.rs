@@ -92,7 +92,9 @@ pub(crate) fn spawn(
         meta.clear_ammo_inventory();
         meta.weapon_shot_count = 0;
         meta.burst_latch = false;
+        meta.burst_latch_secondary = false;
         meta.rechamber_pending = false;
+        meta.rechamber_pending_secondary = false;
         meta.life_sequence
     };
     let class_id = world

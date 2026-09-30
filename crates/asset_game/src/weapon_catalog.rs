@@ -3023,6 +3023,10 @@ fn capture_t5_body_facts(
         leftover_t5_offhand_class(i32_at_t5(stream, body, sz::WEAPON_DEF_OFFHAND_CLASS_OFF));
     facts.hold_fire_time_ms = i32_at_t5(stream, body, sz::WEAPON_DEF_HOLD_FIRE_TIME_OFF);
     facts.fuse_time_ms = i32_at_t5(stream, body, sz::WEAPON_DEF_FUSE_TIME_OFF);
+    facts.stickiness = i32_at_t5(stream, body, sz::WEAPON_DEF_STICKINESS_OFF);
+    facts.has_detonator = u8_at_t5(stream, body, sz::WEAPON_DEF_HAS_DETONATOR_OFF) != 0;
+    facts.timed_detonation = u8_at_t5(stream, body, sz::WEAPON_DEF_TIMED_DETONATION_OFF) != 0;
+    facts.projectile_rotates = u8_at_t5(stream, body, sz::WEAPON_DEF_ROTATE_OFF) != 0;
     facts.cook_off_hold = u8_at_t5(stream, body, sz::WEAPON_DEF_COOK_OFF_HOLD_OFF) != 0;
     facts.offhand_hold_is_cancelable =
         Some(u8_at_t5(stream, body, sz::WEAPON_DEF_OFFHAND_HOLD_IS_CANCELABLE_OFF) != 0);
@@ -3486,6 +3490,11 @@ fn capture_iw5_body_facts(
     facts.offhand_class = i32_at_iw5(stream, body, sz::WEAPON_DEF_OFFHAND_CLASS_OFF, 104);
     facts.hold_fire_time_ms = i32_at_iw5(stream, body, sz::WEAPON_DEF_HOLD_FIRE_TIME_OFF, 948);
     facts.fuse_time_ms = i32_at_iw5(stream, body, sz::WEAPON_DEF_FUSE_TIME_OFF, 1072);
+    facts.stickiness = i32_at_iw5(stream, body, sz::WEAPON_DEF_STICKINESS_OFF, 1720);
+    facts.has_detonator = u8_at_iw5(stream, body, sz::WEAPON_DEF_HAS_DETONATOR_OFF, 2466) != 0;
+    facts.timed_detonation =
+        u8_at_iw5(stream, body, sz::WEAPON_DEF_TIMED_DETONATION_OFF, 2468) != 0;
+    facts.projectile_rotates = u8_at_iw5(stream, body, sz::WEAPON_DEF_ROTATE_OFF, 2469) != 0;
     facts.cook_off_hold = u8_at_iw5(stream, body, sz::WEAPON_DEF_COOK_OFF_HOLD_OFF, 2445) != 0;
     facts.explosion_radius = i32_at_iw5(stream, body, sz::WEAPON_DEF_EXPLOSION_RADIUS_OFF, 1612);
     facts.explosion_radius_min =

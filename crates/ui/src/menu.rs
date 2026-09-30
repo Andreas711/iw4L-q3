@@ -58,6 +58,15 @@ pub fn install_frontend_menus(catalog: &mut asset_game::MenuCatalog) -> Result<(
     catalog.load_definitions(include_str!("../menus/settings.json"))?;
     catalog.load_definitions(include_str!("../menus/controller.json"))?;
     for (name, menu) in &mut catalog.menus {
+        if matches!(name.as_str(), "popup_endgame" | "popup_endgame_ranked") {
+            for item in &mut menu.items {
+                if item.name == "button_yes" {
+                    item.handlers.action = vec![asset_game::MenuEvent::Script(
+                        "play mouse_click; close self; exec \"disconnect\";".into(),
+                    )];
+                }
+            }
+        }
         if let Some(settings_link) = menu
             .items
             .iter()

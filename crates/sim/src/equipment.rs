@@ -1382,6 +1382,7 @@ fn settle_equipment(
     if facts.stickiness == 3 {
         apply_missile_land_angles(world, tick, projectile, normal, fraction);
     }
+    let origin = core::array::from_fn(|i| origin[i] + normal[i] * 0.25);
     stick_missile(tick, projectile, origin);
     if matches!(facts.stickiness, 2 | 4) {
         let mut angles = projectile.apos.tr_base;

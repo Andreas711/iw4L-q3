@@ -57,6 +57,8 @@ received plus its own presented state; `demo LATEST` plays it back.
 * bolt action (`fire_type=1`): `hold +attack` is **one** shot, and a full
   magazine will not reload itself (`press +attack` ×N, then `press +reload`);
 * `look` without `LookState` only writes `ps.viewangles` — no aiming;
+* Use (`+activate` or `+usereload`) retrieves your settled C4, claymores and
+  deployable gadgets when there is room in their equipment ammo slot.
 * `give` takes a namespace: `give t5:weapon/psg1_acog`, `give iw5:weapon/msr`.
 * custom classes live in `iw4l-artifacts/profile/classes.txt` (one tab-separated
   row per class); `spawn 0` selects the first slot. Delete the file to generate

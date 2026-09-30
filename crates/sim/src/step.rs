@@ -1269,7 +1269,9 @@ fn apply_configuration_change(
     meta.mirror_held_ammo(to);
     meta.weapon_shot_count = 0;
     meta.burst_latch = false;
+    meta.burst_latch_secondary = false;
     meta.rechamber_pending = false;
+    meta.rechamber_pending_secondary = false;
     world.push_event(
         tick,
         EventAudience::Client(id),
@@ -1432,7 +1434,9 @@ fn apply_give_weapon(
     meta.mirror_held_ammo(weapon);
     meta.weapon_shot_count = 0;
     meta.burst_latch = false;
+    meta.burst_latch_secondary = false;
     meta.rechamber_pending = false;
+    meta.rechamber_pending_secondary = false;
     world.push_event(
         tick,
         EventAudience::Client(id),
@@ -1467,6 +1471,21 @@ fn apply_give_offhand(
         reject(world, crate::GiveRejectReason::NotAlive);
         return;
     };
+    for slot in &mut next.weapons {
+        if *slot > 0 && *slot != weapon as i32 {
+            let same_slot = world
+                .equipment_facts_for(*slot as u32)
+                .is_some_and(|other| {
+                    (matches!(eq.offhand_class, 1 | 4 | 5)
+                        && matches!(other.offhand_class, 1 | 4 | 5))
+                        || (matches!(eq.offhand_class, 2 | 3)
+                            && matches!(other.offhand_class, 2 | 3))
+                });
+            if same_slot {
+                *slot = 0;
+            }
+        }
+    }
     inventory_add_weapon(&mut next, weapon, false);
     if !next.weapons.contains(&(weapon as i32)) {
         reject(world, crate::GiveRejectReason::InvalidWeapon);
@@ -1482,6 +1501,8 @@ fn apply_give_offhand(
     *world.player_mut(id).expect("validated alive player") = next;
     {
         let meta = world.client_meta_mut(id);
+        meta.ammo_by_weapon
+            .retain(|(id, _, _)| next.weapons.contains(&(*id as i32)));
         meta.set_ammo(weapon, clip, 0);
         if let Some(loadout) = meta.loadout.as_mut() {
             match eq.offhand_class {

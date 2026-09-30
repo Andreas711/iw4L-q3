@@ -341,11 +341,11 @@ fn publish_client_action_input(
     if binds.is_changed() {
         *wheel_carry = 0.0;
     }
-    let captured = !devices.focused
-        || console.open
+    let modal_captured = console.open
         || script_menus.is_some_and(|menus| menus.captures_input())
         || keys.just_pressed(KeyCode::Escape)
         || pad.is_some_and(|pad| pad.just_pressed(bevy::input::gamepad::GamepadButton::Start));
+    let captured = !devices.focused || modal_captured;
     hud_input.console_open = console.open;
     physical.blocked.retain(|button| inputs.pressed(*button));
 
@@ -395,6 +395,7 @@ fn publish_client_action_input(
             }
         }
         let keys = out.client.keys;
+        out.scripted_ids.clear();
         out.client = input_iw4::ClientInput {
             keys,
             ..Default::default()
@@ -449,27 +450,6 @@ fn publish_client_action_input(
                 devices.pad_prompts = false;
             }
         }
-        let scripted_now: std::collections::BTreeSet<u32> = scripted.ids().collect();
-        let down: Vec<u32> = scripted_now
-            .difference(&out.scripted_ids)
-            .copied()
-            .collect();
-        let up: Vec<u32> = out
-            .scripted_ids
-            .difference(&scripted_now)
-            .copied()
-            .collect();
-        for id in down {
-            let extra = now.wrapping_sub(frame as i32);
-            let extra = if extra == 0 { -(frame as i32) } else { extra };
-            input_cmd(&mut out.client, id, SCRIPT_KEYNUM, extra, frame);
-        }
-        for id in up {
-            if let Some(up_id) = key_up_command_id(id) {
-                input_cmd(&mut out.client, up_id, SCRIPT_KEYNUM, now, frame);
-            }
-        }
-        out.scripted_ids = scripted_now;
 
         let (sx, sy) = scripted.take_mouse();
         let (rx, ry) = scripted.mouse_rate().unwrap_or((0.0, 0.0));
@@ -494,6 +474,29 @@ fn publish_client_action_input(
         } else if out.pad_deflection > 0.0 {
             devices.aiming_with_pad = true;
         }
+    }
+    if !modal_captured {
+        let scripted_now: std::collections::BTreeSet<u32> = scripted.ids().collect();
+        let down: Vec<u32> = scripted_now
+            .difference(&out.scripted_ids)
+            .copied()
+            .collect();
+        let up: Vec<u32> = out
+            .scripted_ids
+            .difference(&scripted_now)
+            .copied()
+            .collect();
+        for id in down {
+            let extra = now.wrapping_sub(frame as i32);
+            let extra = if extra == 0 { -(frame as i32) } else { extra };
+            input_cmd(&mut out.client, id, SCRIPT_KEYNUM, extra, frame);
+        }
+        for id in up {
+            if let Some(up_id) = key_up_command_id(id) {
+                input_cmd(&mut out.client, up_id, SCRIPT_KEYNUM, now, frame);
+            }
+        }
+        out.scripted_ids = scripted_now;
     }
     if devices.focused
         && (keys.get_just_pressed().next().is_some()

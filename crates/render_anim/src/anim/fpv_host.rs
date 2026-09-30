@@ -186,7 +186,13 @@ pub fn generate_fpv_pose(args: FpvGenerateArgs<'_>) -> FpvPoseKind {
     let left_pose = if dual_drawn {
         let offset = dual_offset
             .filter(|offset| *offset != 0.0)
-            .map(|offset| Vec3::new(offset, 0.0, 0.0))
+            .map(|offset| {
+                Vec3::from_array(weapon_iw4::dual_wield_view_model_origin_add(
+                    1,
+                    [-1.0, 0.0, 0.0],
+                    offset,
+                ))
+            })
             .unwrap_or(Vec3::ZERO);
         // The rig laid out a left hand, so a left hand that cannot be posed is
         // a plan with a hole in it. Refusing the frame is the honest answer.

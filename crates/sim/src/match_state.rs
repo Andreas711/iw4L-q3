@@ -23,7 +23,8 @@ mod snapshot_meta;
 
 pub use client_view::{
     KillcamHud, LocationSelection, MENU_COMMAND_TAIL, MenuCommand, MenuCommandKind, RadarMode,
-    RemoteMissile, ScriptDepthOfField, ScriptSeat, ViewEffects, VisionChange,
+    RemoteMissile, ScriptBlur, ScriptDepthOfField, ScriptSeat, ViewEffects, VisionChange,
+    is_postfx_dvar,
 };
 pub use events::{
     EntityEventPayload, EntityEventRecord, EventAudience, EventRecord, PelletFxRecord,
@@ -101,8 +102,10 @@ pub struct ClientMatchState {
 
     pub(crate) weapon_shot_count: u8,
     pub(crate) burst_latch: bool,
+    pub(crate) burst_latch_secondary: bool,
 
     pub(crate) rechamber_pending: bool,
+    pub(crate) rechamber_pending_secondary: bool,
 
     pub(crate) dead_since_tick: Option<u32>,
 
@@ -223,7 +226,9 @@ impl ClientMatchState {
             taped_mag_spent: self.taped_mag_spent.clone(),
             weapon_shot_count: self.weapon_shot_count,
             burst_latch: self.burst_latch,
+            burst_latch_secondary: self.burst_latch_secondary,
             rechamber_pending: self.rechamber_pending,
+            rechamber_pending_secondary: self.rechamber_pending_secondary,
             dead_since_tick: self.dead_since_tick,
             look_at_killer_yaw: self.look_at_killer_yaw,
             name: self.name,
@@ -274,7 +279,9 @@ impl ClientMatchState {
         self.taped_mag_spent = meta.taped_mag_spent.clone();
         self.weapon_shot_count = meta.weapon_shot_count;
         self.burst_latch = meta.burst_latch;
+        self.burst_latch_secondary = meta.burst_latch_secondary;
         self.rechamber_pending = meta.rechamber_pending;
+        self.rechamber_pending_secondary = meta.rechamber_pending_secondary;
         self.dead_since_tick = meta.dead_since_tick;
         self.look_at_killer_yaw = meta.look_at_killer_yaw;
         self.name = meta.name;

@@ -38,7 +38,9 @@ pub struct ClientSnapshotMeta {
 
     pub weapon_shot_count: u8,
     pub burst_latch: bool,
+    pub burst_latch_secondary: bool,
     pub rechamber_pending: bool,
+    pub rechamber_pending_secondary: bool,
 
     pub dead_since_tick: Option<u32>,
 

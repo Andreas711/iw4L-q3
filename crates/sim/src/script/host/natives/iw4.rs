@@ -85,12 +85,8 @@ pub(crate) fn register(registry: &mut NativeRegistry) {
             });
         )*};
     }
-    presented![
-        "setexpfog",
-        "setthermalbodymaterial",
-        "ambientplay",
-        "ambientstop",
-    ];
+    registry.register(Function, "setexpfog", super::scene_effects::set_exp_fog);
+    presented!["setthermalbodymaterial", "ambientplay", "ambientstop"];
     registry.register(Function, "getmapcustom", |world, _, args| {
         let key = string(args, 0)?;
         Ok(Value::string(
@@ -164,6 +160,9 @@ fn dvar_name(args: &[Value]) -> Result<String, String> {
 fn dvar_value(args: &[Value]) -> Result<String, String> {
     if let Some(Value::LocalizedString(reference)) = args.get(1) {
         return Ok(reference.to_string());
+    }
+    if let Some(Value::Vector(v)) = args.get(1) {
+        return Ok(format!("{} {} {}", v[0], v[1], v[2]));
     }
     string(args, 1)
 }

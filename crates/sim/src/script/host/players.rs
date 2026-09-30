@@ -205,7 +205,6 @@ pub(crate) fn settle_deaths(world: &mut World) {
 
 pub(crate) const TEAM_MENU: &str = "team_marinesopfor";
 const CLASS_MENU: &str = "changeclass";
-const PAUSE_MENU: &str = "class";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MenuAnswer {
@@ -490,14 +489,15 @@ fn deliver_answers(world: &mut World, client: u32) {
     let Some(slot) = runtime.players.get(&client) else {
         return;
     };
-    let Some(next) = runtime.menu_answers.get(&client).and_then(|q| q.front()) else {
+    if runtime
+        .menu_answers
+        .get(&client)
+        .is_none_or(VecDeque::is_empty)
+    {
         return;
-    };
+    }
     let in_game = matches!(&*slot.sessionstate, "playing" | "dead");
-    // The client opens the pause menu locally, without a script openmenu call.
-    // Its responses must still reach GSC after a class selection clears slot.menu.
-    let client_menu = matches!(&*next.menu, CLASS_MENU | PAUSE_MENU);
-    if slot.menu.is_none() && !(in_game && client_menu) {
+    if slot.menu.is_none() && !in_game {
         return;
     }
     let object = slot.object;

@@ -634,6 +634,11 @@ pub const WEAPON_DEF_PROJ_EXPLOSION_TYPE_OFF: usize = 0x5ec;
 
 pub const WEAPON_DEF_PROJ_IMPACT_EXPLODE_OFF: usize = 0x62c;
 
+pub const WEAPON_DEF_STICKINESS_OFF: usize = 0x630;
+pub const WEAPON_DEF_HAS_DETONATOR_OFF: usize = 0x639;
+pub const WEAPON_DEF_TIMED_DETONATION_OFF: usize = 0x63a;
+pub const WEAPON_DEF_ROTATE_OFF: usize = 0x63c;
+
 pub const WEAPON_DEF_HOLD_BUTTON_TO_THROW_OFF: usize = 0x63e;
 
 pub const WEAPON_DEF_OFFHAND_HOLD_IS_CANCELABLE_OFF: usize = 0x63f;

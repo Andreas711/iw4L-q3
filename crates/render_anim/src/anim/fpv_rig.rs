@@ -576,8 +576,6 @@ impl PreparedFpvRig {
     }
 }
 
-/// A dual-wield left hand is the right hand's pose moved sideways, the offset
-/// landing on the posed position.
 fn translate_packed_rows(rows: &mut [[u8; asset_iw4::size::GFX_PACKED_VERTEX]], delta: Vec3) {
     for row in rows {
         let x = f32::from_le_bytes([row[0], row[1], row[2], row[3]]) + delta.x;

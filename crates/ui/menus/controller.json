@@ -945,6 +945,8 @@
      "static_flags": 0,
      "vis_exp": "1",
      "disabled_exp": "0",
+     "dvar": "",
+     "choices": [],
      "text_key": "Test",
      "text_exp": "",
      "text_align_mode": 10,
@@ -965,7 +967,7 @@
      "handlers": {
       "action": [
        {
-        "Script": "set ui_pad_test_rumble 1;"
+        "Script": "setdvar ui_pad_test_rumble 1;"
        }
       ],
       "focus": [

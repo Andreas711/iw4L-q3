@@ -555,7 +555,9 @@ fn grab_number(world: &mut FrameWorld, walker: ClientId, number: i32) {
         meta.set_quick_reload_ready(weapon, true);
         meta.weapon_shot_count = 0;
         meta.burst_latch = false;
+        meta.burst_latch_secondary = false;
         meta.rechamber_pending = false;
+        meta.rechamber_pending_secondary = false;
     }
     world.item_pickups_mut().push(ItemPickupRecord {
         picker: walker.0 as i32,
@@ -673,16 +675,31 @@ fn primary_count(world: &FrameWorld, ps: &PlayerState) -> usize {
 struct UseItem {
     number: i32,
     weapon: u32,
-    knife: bool,
+    projectile: bool,
 }
 
-fn knife_pickup_ammo(world: &FrameWorld, ps: &PlayerState, weapon: u32) -> Option<(i32, i32, i32)> {
+fn projectile_pickup_ammo(
+    world: &FrameWorld,
+    walker: ClientId,
+    ps: &PlayerState,
+    projectile: &crate::ProjectileState,
+) -> Option<(i32, i32, i32)> {
+    let weapon = projectile.weapon;
     if !ps.weapons.contains(&(weapon as i32)) {
         return None;
     }
-    let facts = world
-        .equipment_facts_for(weapon)
-        .filter(|f| f.is_retrievable_knife())?;
+    let facts = world.equipment_facts_for(weapon)?;
+    if !facts.is_retrievable_knife()
+        && (!facts.is_offhand()
+            || facts.stickiness == 0
+            || facts.timed_detonation
+            || facts.proj_impact_explode
+            || projectile.detonate_at_ms.is_some()
+            || projectile.owner != walker
+            || world.client_meta(walker)?.life_sequence != projectile.owner_life)
+    {
+        return None;
+    }
     let (clip, left, stock) = ammo_from_ps(world, ps, weapon);
     if facts.ballistic_blade {
         if ps.weapon != weapon && clip == 0 {
@@ -691,11 +708,11 @@ fn knife_pickup_ammo(world: &FrameWorld, ps: &PlayerState, weapon: u32) -> Optio
         let combat = world.combat_facts_for(weapon)?;
         (stock < combat.max_ammo).then_some((clip, left, stock + 1))
     } else {
-        (clip < facts.clip_size).then_some((clip + 1, left, stock))
+        (clip < facts.clip_size.max(1)).then_some((clip + 1, left, stock))
     }
 }
 
-fn grab_knife(world: &mut FrameWorld, walker: ClientId, number: i32, tick: Tick) {
+fn grab_projectile(world: &mut FrameWorld, walker: ClientId, number: i32, tick: Tick) {
     let Some(projectile) = world.projectile_by_number(number) else {
         return;
     };
@@ -706,7 +723,7 @@ fn grab_knife(world: &mut FrameWorld, walker: ClientId, number: i32, tick: Tick)
         return;
     }
     let weapon = projectile.weapon;
-    let Some((clip, left, stock)) = knife_pickup_ammo(world, &ps, weapon) else {
+    let Some((clip, left, stock)) = projectile_pickup_ammo(world, walker, &ps, &projectile) else {
         return;
     };
     let (old_clip, _, old_stock) = ammo_from_ps(world, &ps, weapon);
@@ -794,14 +811,14 @@ fn selected_item(world: &FrameWorld, walker: ClientId, ps: &PlayerState) -> Opti
                 UseItem {
                     number: item.state.number,
                     weapon: item.state.index as u32,
-                    knife: false,
+                    projectile: false,
                 },
             ));
         }
     }
     world.visit_projectiles(|projectile| {
         if projectile.pos.tr_type != TR_STATIONARY
-            || knife_pickup_ammo(world, ps, projectile.weapon).is_none()
+            || projectile_pickup_ammo(world, walker, ps, projectile).is_none()
         {
             return;
         }
@@ -831,7 +848,7 @@ fn selected_item(world: &FrameWorld, walker: ClientId, ps: &PlayerState) -> Opti
                 UseItem {
                     number: projectile.entnum,
                     weapon: projectile.weapon,
-                    knife: true,
+                    projectile: true,
                 },
             ));
         }
@@ -874,8 +891,8 @@ pub(crate) fn phase_use_items(
         let ready = now - meta.item_use_spawn_ms >= 500;
         if held && ready && pending.is_some() && selected_ref == pending {
             let item = selected.expect("selected use item");
-            if item.knife {
-                grab_knife(world, id, item.number, tick);
+            if item.projectile {
+                grab_projectile(world, id, item.number, tick);
             } else {
                 grab_number(world, id, item.number);
             }

@@ -275,6 +275,7 @@ pub fn sync_camera_from_presented(
         weapons.as_deref(),
         death_cam_clip.0.as_deref(),
     ) {
+        let pose = earthquake_pose(pose, &presented, clock.time());
         let eye = transform_from_iw_view(pose);
         for mut transform in &mut q {
             transform.translation = eye.translation;
@@ -292,6 +293,7 @@ pub fn sync_camera_from_presented(
         return;
     }
     if let Some(pose) = remote_missile_camera(&presented, local.0, clock.time()) {
+        let pose = earthquake_pose(pose, &presented, clock.time());
         let eye = transform_from_iw_view(pose);
         for mut transform in &mut q {
             transform.translation = eye.translation;
@@ -315,6 +317,7 @@ pub fn sync_camera_from_presented(
         else {
             return;
         };
+        let pose = earthquake_pose(pose, &presented, clock.time());
         let eye = transform_from_iw_view(pose);
         for mut transform in &mut q {
             transform.translation = eye.translation;
@@ -427,8 +430,9 @@ pub fn sync_camera_from_presented(
     if origin[2] < min_z {
         origin[2] = min_z;
     }
-    kick.refdef_vieworg = origin;
-    let pose = WorldCameraPose { origin, angles };
+    let pose = earthquake_pose(WorldCameraPose { origin, angles }, &presented, clock.time());
+    kick.refdef_vieworg = pose.origin;
+    kick.refdef_view_angles = pose.angles;
     let eye = transform_from_iw_view(pose);
     for mut transform in &mut q {
         transform.translation = eye.translation;
@@ -613,4 +617,21 @@ pub(crate) fn iw_view_placement_to_bevy_camera_local(
         rotation: crate::anim::fpv_pose::placement_angles_to_bevy_camera_quat(angles_deg),
         ..Default::default()
     }
+}
+
+fn earthquake_pose(
+    mut pose: WorldCameraPose,
+    presented: &PresentedSnapshot,
+    now_ms: i32,
+) -> WorldCameraPose {
+    if let Some(snapshot) = presented.snapshot() {
+        let eye = pose.origin;
+        for quake in &snapshot.meta.objectives.earthquakes {
+            let offset = quake.angle_offset(eye, now_ms);
+            for (angle, delta) in pose.angles.iter_mut().zip(offset) {
+                *angle += delta;
+            }
+        }
+    }
+    pose
 }
