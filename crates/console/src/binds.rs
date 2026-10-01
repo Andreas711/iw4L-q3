@@ -176,6 +176,20 @@ impl PadButton {
     }
 }
 
+pub(crate) fn gameplay_binding(button: BindButton, command: u32, akimbo: bool) -> u32 {
+    if !akimbo || !button.is_pad() {
+        return command;
+    }
+    // Akimbo uses THROW for the right hand and ATTACK for the left hand.
+    // Remap actions, not physical buttons, so custom and Lefty layouts still work.
+    let mapped = match command_name(command) {
+        Some("+attack") => "+speed_throw",
+        Some("+speed_throw") => "+attack",
+        _ => return command,
+    };
+    command_id_lookup(mapped).expect("built-in controller action")
+}
+
 pub fn pad_layout(layout: usize) -> Vec<(PadButton, &'static str)> {
     use PadButton::*;
     let mut binds = vec![
