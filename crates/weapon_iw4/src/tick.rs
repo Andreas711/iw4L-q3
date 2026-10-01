@@ -884,6 +884,9 @@ pub fn weapon_ordinary(
     };
     let attack = cmd.buttons & fire_mask != 0;
     let was_attack = cmd.old_buttons & fire_mask != 0;
+    if fire_ty.is_single() && !attack {
+        hand.shot_count = 0;
+    }
     let time_before = hand.weapon_time;
     let delay_before = hand.weapon_delay;
     let decay_ms = weapon_time_adjust(hand, facts, cmd);
@@ -931,8 +934,8 @@ pub fn weapon_ordinary(
     }
 
     let reload = cmd.buttons & BUTTON_RELOAD != 0;
-    let reload_edge = reload && cmd.old_buttons & BUTTON_RELOAD == 0;
-    if crate::reload::weapon_process_input_wants_reload(hand, facts, reload_edge, cmd.pm_flags)
+    // MW2 checks the held reload request again whenever the weapon can reload.
+    if crate::reload::weapon_process_input_wants_reload(hand, facts, reload, cmd.pm_flags)
         && begin_weapon_reload(hand, facts)
     {
         return Some(WeaponTickEvent::ReloadStarted);
@@ -1081,7 +1084,8 @@ pub fn weapon_ordinary(
     if ready_idle || mid_burst_continue || delayed_fire {
         let trigger = match fire_ty {
             FireType::FullAuto => attack || delayed_fire,
-            FireType::SingleShot => (attack && !was_attack) || delayed_fire,
+            // Reloads and weapon changes reset shot_count, rearming a held trigger.
+            FireType::SingleShot => (attack && hand.shot_count == 0) || delayed_fire,
             FireType::BurstFire2 | FireType::BurstFire3 | FireType::BurstFire4 => {
                 attack || pending || delayed_fire
             }
