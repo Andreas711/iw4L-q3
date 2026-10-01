@@ -1,5 +1,5 @@
 use super::super::args::{arg, float, int, kind, optional, string, vector};
-use super::super::arrays::{array_values, new_array};
+use super::super::arrays::{array_values, iteration_key, new_array};
 use super::super::tables::{table, table_lookup, table_lookup_by_row, table_search};
 use super::iw4::atoi;
 use crate::script::{ArrayKey, Namespace, NativeRegistry, Runtime, Value};
@@ -259,6 +259,18 @@ pub(crate) fn register(registry: &mut NativeRegistry) {
             .map(|t| Value::String(t.into()))
             .collect();
         new_array(world, tokens)
+    });
+    registry.register(Function, "getfirstarraykey", |world, _, args| {
+        if args.len() != 1 {
+            return Err("GetFirstArrayKey expects an array".into());
+        }
+        iteration_key(world, arg(args, 0)?, None)
+    });
+    registry.register(Function, "getnextarraykey", |world, _, args| {
+        if args.len() != 2 {
+            return Err("GetNextArrayKey expects an array and previous key".into());
+        }
+        iteration_key(world, arg(args, 0)?, Some(arg(args, 1)?))
     });
     registry.register(Function, "getarraykeys", |world, _, args| {
         let Value::Array(id) = arg(args, 0)? else {

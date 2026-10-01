@@ -15,12 +15,10 @@ those systems work.
 
 Explore maps, fight bots, and record and replay demos. Gameplay remains incomplete;
 expect missing behavior, bugs and desyncs. The asset readers also cover MW3 and Black
-Ops, but MW3's 64-bit Steam FastFiles are rejected.
+Ops.
 
-[No releases yet](https://github.com/vladtrc/iw4L/releases): build from source. APIs,
-configuration, caches and the wire protocol change between commits. Multiplayer is for
-arranged playtests on the same commit and has not been vetted for public lobbies. IW4L
-clients use their own protocol; they cannot join retail servers.
+Build from source. APIs, configuration, caches and the wire protocol change between
+commits; multiplayer peers must run the same commit.
 
 ## Build and run
 

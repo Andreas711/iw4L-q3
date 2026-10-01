@@ -79,6 +79,16 @@ pub fn death(victim: u32, attacker: Option<u32>, suicide: u8, tick: u32) {
     track_event_end!("iw4l.sim");
 }
 
+pub fn projectile_phase(weapon: u32, projectile: u32, phase: &str, deadline_ms: i32) {
+    track_event_begin!("iw4l.sim", "projectile_phase", |ctx: &mut EventContext| {
+        i64_arg(ctx, "weapon", i64::from(weapon));
+        i64_arg(ctx, "projectile", i64::from(projectile));
+        str_arg(ctx, "phase", phase);
+        i64_arg(ctx, "deadline_ms", i64::from(deadline_ms));
+    });
+    track_event_end!("iw4l.sim");
+}
+
 pub fn projectile(weapon: u32) {
     track_event_begin!("iw4l.sim", "projectile", |ctx: &mut EventContext| {
         i64_arg(ctx, "weapon", i64::from(weapon));

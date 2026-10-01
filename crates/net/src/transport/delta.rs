@@ -292,6 +292,7 @@ fn encode_projectile(out: &mut WireWriter, projectile: &ProjectileState) {
     out.put_u8(projectile.guide.top.into());
     out.put_u8(projectile.guide.stage);
     out.put_u8(projectile.guide.passed.into());
+    encode_missile_target(out, projectile.attached_to);
 }
 
 fn encode_trajectory(out: &mut WireWriter, tr: &entity_iw4::Trajectory) {
@@ -347,6 +348,7 @@ fn decode_projectile(input: &mut WireReader<'_>) -> Result<ProjectileState, Wire
             stage: input.get_u8()?,
             passed: input.get_u8()? != 0,
         },
+        attached_to: decode_missile_target(input)?,
     })
 }
 
@@ -417,6 +419,9 @@ pub(crate) fn encode_usercmd(out: &mut WireWriter, cmd: &UserCmd) {
     out.put_u8(cmd.melee_charge_dist);
     out.put_bytes(&cmd.selected_location);
     out.put_bytes(&cmd.remote_control);
+    for angle in cmd.gun_angle_offset {
+        out.put_f32(angle);
+    }
 }
 
 pub(crate) fn decode_usercmd(input: &mut WireReader<'_>) -> Result<UserCmd, WireError> {
@@ -437,7 +442,15 @@ pub(crate) fn decode_usercmd(input: &mut WireReader<'_>) -> Result<UserCmd, Wire
     input.get_bytes(&mut selected_location)?;
     let mut remote_control = [0u8; 2];
     input.get_bytes(&mut remote_control)?;
+    let mut gun_angle_offset = [0.0; 2];
+    for angle in &mut gun_angle_offset {
+        *angle = input.get_f32()?;
+        if !angle.is_finite() {
+            return Err(WireError::Malformed("non-finite gun aim"));
+        }
+    }
     Ok(UserCmd {
+        gun_angle_offset,
         server_time,
         buttons,
         angles,

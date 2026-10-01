@@ -1,7 +1,5 @@
 # Native data contracts
 
-IW4L has no in-tree C/C++ game bridge. GSC runs in Rust; asset layouts and
-`d3d9_*` types describe data rather than exposing a callable native ABI.
 Direct C calls use libc. On Unix with `perf/native`, `perfetto-sdk` also calls
 the C ABI of a C++ Perfetto implementation. Other platform calls are behind
 Rust libraries such as Bevy/wgpu/winit and the Windows allocator.
@@ -29,7 +27,7 @@ It allocates a temporary display string only when NUL is present. The SDK
 copies this string into its own `CString` before that temporary is dropped.
 The C consumer serializes it before the SDK drops the event context.
 
-Expected adapter examples (source review, not executed):
+Adapter display examples:
 
 | Rust input | Perfetto display |
 |---|---|
@@ -37,10 +35,3 @@ Expected adapter examples (source review, not executed):
 | `"a\0b"` | `a\0b` with a visible backslash and digit zero |
 | `"\0a\0"`, `"\0\0"` | every NUL rendered, including at the ends |
 | `"a\\0b"` | unchanged; display escaping is not a reversible encoding |
-
-The empty-chunk mismatch needs a fix in the SDK callback adapter before it
-constructs a Rust slice. A guard in IW4L's read closure is too late. Flush
-failure reporting and exit-hook registration also need separate work.
-These contracts were reviewed from source against the locked SDK versions
-1.1.1 / sys 1.3.0. Builds, tests and analyzers were not run. This is not a
-complete audit of every transitive platform backend.

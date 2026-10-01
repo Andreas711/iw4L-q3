@@ -573,6 +573,7 @@ dependencies = [
  "net",
  "perf",
  "playerstate_iw4",
+ "rodio",
  "sim",
  "symphonia",
 ]
@@ -2178,6 +2179,7 @@ dependencies = [
  "frame",
  "hud",
  "input_iw4",
+ "master_protocol",
  "net",
  "perf",
  "render",
@@ -3486,6 +3488,7 @@ dependencies = [
  "getrandom 0.3.4",
  "master_protocol",
  "quinn",
+ "ring",
  "rustls",
  "rustls-pemfile",
  "rustls-platform-verifier",
