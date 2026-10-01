@@ -97,6 +97,8 @@ pub struct CapturedCombatInput {
 
     pub inherits_perks: bool,
 
+    /// WeaponDef::iPositionReloadTransTime, in weapon-timer milliseconds.
+    pub ads_reload_trans_time_ms: i32,
     pub ads_in_rate: f32,
 
     pub ads_out_rate: f32,
@@ -239,6 +241,8 @@ pub struct WeaponCombatFacts {
 
     pub no_ads_when_mag_empty: bool,
 
+    /// WeaponDef::iPositionReloadTransTime, in weapon-timer milliseconds.
+    pub ads_reload_trans_time_ms: i32,
     pub ads_in_rate: f32,
 
     pub ads_out_rate: f32,
@@ -347,6 +351,7 @@ impl WeaponCombatFacts {
             aim_down_sight: false,
             no_ads_when_mag_empty: false,
             inherits_perks: false,
+            ads_reload_trans_time_ms: 0,
             ads_in_rate: 0.0,
             ads_out_rate: 0.0,
             rechamber_while_ads: true,
@@ -455,6 +460,7 @@ impl WeaponCombatFacts {
             ads_spread: input.ads_spread,
             aim_down_sight: input.aim_down_sight,
             no_ads_when_mag_empty: input.no_ads_when_mag_empty,
+            ads_reload_trans_time_ms: input.ads_reload_trans_time_ms,
             ads_in_rate: input.ads_in_rate,
             ads_out_rate: input.ads_out_rate,
             rechamber_while_ads: input.rechamber_while_ads,
