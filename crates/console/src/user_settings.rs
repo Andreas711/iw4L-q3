@@ -452,7 +452,6 @@ fn parse_settings(source: &str, settings: &mut frame::GameSettings, binds: &mut 
             "player_name" => settings.player_name = value.to_owned(),
             "pad_layout" => parse_into(value, &mut settings.pad_layout),
             "pad_stick_layout" => parse_into(value, &mut settings.pad_stick_layout),
-            // Preserve the effective speed of configs saved with the old 1-10 slider.
             "pad_sensitivity" => {
                 if let Ok(old) = value.parse::<f32>() {
                     settings.pad_custom_sensitivity = old.clamp(1.0, 10.0) / 3.0;

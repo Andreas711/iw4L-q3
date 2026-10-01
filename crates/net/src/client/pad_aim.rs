@@ -172,8 +172,6 @@ pub fn pad_look_frame(
 
     for (rate, goal) in input.pad_turn_rate.iter_mut().zip(wanted) {
         if input.pad_acceleration && goal.abs() > rate.abs() {
-            // IW4x ramps speed magnitude, then applies the requested direction.
-            // Acceleration follows base sensitivity, independently of FOV and ADS.
             let step = TURN_ACCEL * input.pad_sensitivity * dt;
             *rate = (rate.abs() + step).min(goal.abs()) * goal.signum();
         } else {

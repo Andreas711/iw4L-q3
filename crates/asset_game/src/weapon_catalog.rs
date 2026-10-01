@@ -107,7 +107,6 @@ pub struct WeaponBodyFacts {
 
     pub inherits_perks: bool,
 
-    /// WeaponDef::iPositionReloadTransTime, in weapon-timer milliseconds.
     pub ads_reload_trans_time_ms: i32,
     pub ads_in_rate: f32,
 

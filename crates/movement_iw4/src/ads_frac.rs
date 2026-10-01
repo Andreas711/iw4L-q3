@@ -4,7 +4,6 @@ use playerstate_iw4::{PlayerState, pm_flags};
 pub struct AdsFracContext {
     pub aim_down_sight: bool,
 
-    /// Remaining weapon time at which a magazine reload may blend back into ADS.
     pub ads_reload_trans_time_ms: i32,
     pub segmented_reload: bool,
 
@@ -47,9 +46,6 @@ pub fn update_ads_frac(ps: &mut PlayerState, msec: i32, context: AdsFracContext)
     }
 
     let mut ads_requested = (ps.pm_flags & pm_flags::ADS_INTENT) != 0;
-    // MW2 PM_UpdateAimDownSightLerp (0x4a84ab..0x4a8507): magazine
-    // reloads can blend into ADS during their authored transition window.
-    // Segmented reloads only allow that window in the reload-end state.
     let reload_blocks_ads = if context.segmented_reload {
         matches!(ws, 8..=11) || (ws == 12 && ps.weapon_time > context.ads_reload_trans_time_ms)
     } else {

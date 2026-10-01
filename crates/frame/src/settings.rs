@@ -40,7 +40,6 @@ pub struct GameSettings {
 
     pub pad_layout: u8,
     pub pad_stick_layout: u8,
-    /// Zero selects the independently saved custom multiplier; 1..=10 select presets.
     pub pad_sensitivity_preset: u8,
     pub pad_custom_sensitivity: f32,
     pub pad_ads_sensitivity: f32,
@@ -93,7 +92,6 @@ impl GameSettings {
     pub const FOV_DEFAULT: f32 = 65.0;
     pub const FOV_MIN: f32 = 65.0;
     pub const FOV_MAX: f32 = 120.0;
-    // IW4x ui_mp/pc_options_gamepad.menu: SENSITIVITY_1 through SENSITIVITY_10.
     pub const PAD_SENSITIVITY_PRESETS: [f32; 10] =
         [0.6, 1.0, 1.4, 1.8, 2.0, 2.2, 2.6, 3.0, 3.5, 4.0];
 

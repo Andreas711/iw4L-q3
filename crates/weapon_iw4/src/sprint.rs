@@ -29,8 +29,6 @@ pub(crate) fn weapon_check_hands_for_sprint(
     let Ok(ws) = WeaponState::from_i32(primary.weaponstate) else {
         return;
     };
-    // MW2 PM_Weapon_CheckForSprint (0x578060): either hand can block the
-    // transition, but the primary hand determines whether sprint starts/ends.
     if !check_for_sprint_allowed(ws)
         || hands.iter().skip(1).any(|hand| {
             matches!(

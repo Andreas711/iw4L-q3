@@ -97,7 +97,6 @@ pub struct CapturedCombatInput {
 
     pub inherits_perks: bool,
 
-    /// WeaponDef::iPositionReloadTransTime, in weapon-timer milliseconds.
     pub ads_reload_trans_time_ms: i32,
     pub ads_in_rate: f32,
 
@@ -241,7 +240,6 @@ pub struct WeaponCombatFacts {
 
     pub no_ads_when_mag_empty: bool,
 
-    /// WeaponDef::iPositionReloadTransTime, in weapon-timer milliseconds.
     pub ads_reload_trans_time_ms: i32,
     pub ads_in_rate: f32,
 
@@ -985,7 +983,6 @@ fn finish_weapon_tick(
     }
 
     let reload = cmd.buttons & BUTTON_RELOAD != 0;
-    // MW2 checks the held reload request again whenever the weapon can reload.
     if crate::reload::weapon_process_input_wants_reload(hand, facts, reload, cmd.pm_flags)
         && begin_weapon_reload(hand, facts)
     {
@@ -1135,7 +1132,6 @@ fn finish_weapon_tick(
     if ready_idle || mid_burst_continue || delayed_fire {
         let trigger = match fire_ty {
             FireType::FullAuto => attack || delayed_fire,
-            // Reloads and weapon changes reset shot_count, rearming a held trigger.
             FireType::SingleShot => (attack && hand.shot_count == 0) || delayed_fire,
             FireType::BurstFire2 | FireType::BurstFire3 | FireType::BurstFire4 => {
                 attack || pending || delayed_fire
@@ -1382,7 +1378,6 @@ pub fn weapon_hands(
     cmd.pm_flags = cmd.melee_charge.pm_flags;
     let last = last_hand.clamp(0, 1) as usize;
     let n = hands.len().min(last + 1);
-    // Decay both hands before deciding a shared sprint transition, as in MW2.
     let mut prepared = [PreparedWeaponTick::Complete(None); 2];
     for i in 0..n {
         hands[i].hand_index = i as u8;

@@ -35,8 +35,6 @@ pub fn sprint_forward_below_minimum(forwardmove: i8, forward_minimum: i32) -> bo
 const BUTTON_SPRINT: u32 = 0x2;
 
 fn sprint_interfering_buttons(ps: &PlayerState, pressed: u32, mask: u32) -> bool {
-    // Combined use/reload can reload one akimbo hand while the other sprints.
-    // The client also sets RELOAD when USE_RELOAD has no interaction target.
     let mask = if ps.last_weapon_hand == 1
         && !(8..=12).contains(&ps.weaponstate_primary)
         && pressed & buttons::USE_RELOAD != 0
