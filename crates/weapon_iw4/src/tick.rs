@@ -807,13 +807,41 @@ fn decay_offhand_family_timers(hand: &mut WeaponHandState, msec: i32) -> bool {
     delay_before > 0 && hand.weapon_delay == 0
 }
 
+#[derive(Clone, Copy)]
+struct OrdinaryWeaponTick {
+    fire_ty: FireType,
+    attack: bool,
+    was_attack: bool,
+    delayed_action: bool,
+}
+
+#[derive(Clone, Copy)]
+enum PreparedWeaponTick {
+    Complete(Option<WeaponTickEvent>),
+    Ordinary(OrdinaryWeaponTick),
+}
+
 pub fn weapon_ordinary(
     hand: &mut WeaponHandState,
     facts: &WeaponCombatFacts,
     cmd: &mut WeaponCmd,
 ) -> Option<WeaponTickEvent> {
+    match prepare_weapon_tick(hand, facts, cmd) {
+        PreparedWeaponTick::Complete(event) => event,
+        PreparedWeaponTick::Ordinary(tick) => {
+            crate::sprint::weapon_check_for_sprint(hand, facts, cmd.pm_flags);
+            finish_weapon_tick(hand, facts, cmd, tick)
+        }
+    }
+}
+
+fn prepare_weapon_tick(
+    hand: &mut WeaponHandState,
+    facts: &WeaponCombatFacts,
+    cmd: &mut WeaponCmd,
+) -> PreparedWeaponTick {
     if let Some(cooked) = crate::offhand::weapon_update_grenade_throw(hand, cmd) {
-        return Some(cooked);
+        return PreparedWeaponTick::Complete(Some(cooked));
     }
 
     if cmd.cmd_weapon == 0 && hand.weapon != 0 {
@@ -833,14 +861,18 @@ pub fn weapon_ordinary(
         }
         let delayed_action = decay_offhand_family_timers(hand, cmd.msec);
         if let Some(prepare) = crate::offhand::weapon_check_for_offhand(hand, cmd) {
-            return Some(prepare);
+            return PreparedWeaponTick::Complete(Some(prepare));
         }
-        return crate::offhand::weapon_advance_offhand(hand, cmd, delayed_action);
+        return PreparedWeaponTick::Complete(crate::offhand::weapon_advance_offhand(
+            hand,
+            cmd,
+            delayed_action,
+        ));
     }
     let fire_ty = match facts.fire_type_enum() {
         Ok(ty) => ty,
 
-        Err(_) => return None,
+        Err(_) => return PreparedWeaponTick::Complete(None),
     };
 
     let detonator = cmd
@@ -854,15 +886,15 @@ pub fn weapon_ordinary(
         hand.weapon_time = (hand.weapon_time - cmd.msec).max(0);
         hand.weapon_delay = (hand.weapon_delay - cmd.msec).max(0);
         if before > 0 && hand.weapon_delay == 0 {
-            return Some(WeaponTickEvent::Detonated {
+            return PreparedWeaponTick::Complete(Some(WeaponTickEvent::Detonated {
                 weapon: hand.weapon,
-            });
+            }));
         }
         if hand.weapon_time == 0 {
             hand.weaponstate = WeaponState::Ready as i32;
             crate::weap_anim::weapon_idle_weap_anim(&mut hand.weap_anim, cmd.pm_type);
         }
-        return None;
+        return PreparedWeaponTick::Complete(None);
     }
     if let Some(row) = detonator.filter(|_| {
         hand.weaponstate == WeaponState::Ready as i32
@@ -875,7 +907,7 @@ pub fn weapon_ordinary(
             &mut hand.weap_anim,
             crate::weap_anim::weap_anim_event::DETONATE,
         );
-        return None;
+        return PreparedWeaponTick::Complete(None);
     }
     let fire_mask = if detonator.is_some() {
         playerstate_iw4::buttons::THROW
@@ -906,7 +938,26 @@ pub fn weapon_ordinary(
         hand.weapon_restrict_kick_time = (hand.weapon_restrict_kick_time - cmd.msec).max(0);
     }
 
-    crate::sprint::weapon_check_for_sprint(hand, facts, cmd.pm_flags);
+    PreparedWeaponTick::Ordinary(OrdinaryWeaponTick {
+        fire_ty,
+        attack,
+        was_attack,
+        delayed_action,
+    })
+}
+
+fn finish_weapon_tick(
+    hand: &mut WeaponHandState,
+    facts: &WeaponCombatFacts,
+    cmd: &mut WeaponCmd,
+    tick: OrdinaryWeaponTick,
+) -> Option<WeaponTickEvent> {
+    let OrdinaryWeaponTick {
+        fire_ty,
+        attack,
+        was_attack,
+        delayed_action,
+    } = tick;
     crate::sprint::weapon_advance_sprint(hand, &mut cmd.weap_flags, &mut cmd.pm_flags, cmd.pm_type);
     if let Some(melee) = crate::melee::weapon_advance_melee(
         hand,
@@ -1331,11 +1382,26 @@ pub fn weapon_hands(
     cmd.pm_flags = cmd.melee_charge.pm_flags;
     let last = last_hand.clamp(0, 1) as usize;
     let n = hands.len().min(last + 1);
+    // Decay both hands before deciding a shared sprint transition, as in MW2.
+    let mut prepared = [PreparedWeaponTick::Complete(None); 2];
     for i in 0..n {
         hands[i].hand_index = i as u8;
-        if let Some(ev) = weapon_ordinary(&mut hands[i], facts, cmd) {
-            out[i] = Some((i as u8, ev));
-        }
+        prepared[i] = prepare_weapon_tick(&mut hands[i], facts, cmd);
+    }
+    if prepared[..n]
+        .iter()
+        .all(|tick| matches!(tick, PreparedWeaponTick::Ordinary(_)))
+    {
+        crate::sprint::weapon_check_hands_for_sprint(&mut hands[..n], facts, cmd);
+    }
+    for i in 0..n {
+        let event = match prepared[i] {
+            PreparedWeaponTick::Complete(event) => event,
+            PreparedWeaponTick::Ordinary(tick) => {
+                finish_weapon_tick(&mut hands[i], facts, cmd, tick)
+            }
+        };
+        out[i] = event.map(|event| (i as u8, event));
     }
     if n > 1 {
         let stock = hands[0].stock.min(hands[1].stock);

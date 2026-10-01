@@ -1,4 +1,4 @@
-use playerstate_iw4::{PlayerState, UserCmd, pm_flags};
+use playerstate_iw4::{PlayerState, UserCmd, buttons, pm_flags};
 
 #[must_use]
 pub fn get_max_sprint_time(sprint_duration_scale: f32, player_sprint_time_seconds: f32) -> i32 {
@@ -34,6 +34,20 @@ pub fn sprint_forward_below_minimum(forwardmove: i8, forward_minimum: i32) -> bo
 
 const BUTTON_SPRINT: u32 = 0x2;
 
+fn sprint_interfering_buttons(ps: &PlayerState, pressed: u32, mask: u32) -> bool {
+    // Combined use/reload can reload one akimbo hand while the other sprints.
+    // The client also sets RELOAD when USE_RELOAD has no interaction target.
+    let mask = if ps.last_weapon_hand == 1
+        && !(8..=12).contains(&ps.weaponstate_primary)
+        && pressed & buttons::USE_RELOAD != 0
+    {
+        mask & !(buttons::USE_RELOAD | buttons::RELOAD)
+    } else {
+        mask
+    };
+    pressed & mask != 0
+}
+
 pub const PERK_MARATHON: u32 = 0x0200_0000;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -63,7 +77,7 @@ pub fn sprint_start_interfering_buttons(
     let flags = ps.pm_flags;
     if (flags & 8) != 0
         || sprint_forward_below_minimum(forwardmove, forward_minimum)
-        || (buttons & 0xcc35) != 0
+        || sprint_interfering_buttons(ps, buttons, 0xcc35)
     {
         return true;
     }
@@ -83,7 +97,7 @@ pub fn sprint_ending_buttons(
     let flags = ps.pm_flags;
     if (flags & 0x8018) != 0
         || sprint_forward_below_minimum(forwardmove, forward_minimum)
-        || (buttons & 0xcf35) != 0
+        || sprint_interfering_buttons(ps, buttons, 0xcf35)
     {
         return true;
     }
