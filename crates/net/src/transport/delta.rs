@@ -192,18 +192,14 @@ impl SnapshotDecoder {
     }
 
     pub fn adopt_baseline(&mut self, snapshot: &Snapshot) {
-        self.adopt_entity_baseline(snapshot);
-        self.world_objects
-            .adopt_baseline(snapshot.meta.world_objects.clone());
-    }
-
-    pub(super) fn adopt_entity_baseline(&mut self, snapshot: &Snapshot) {
         self.baseline = snapshot.players.clone();
         self.projectile_baseline = snapshot
             .projectiles
             .iter()
             .map(|projectile| (projectile.id, *projectile))
             .collect();
+        self.world_objects
+            .adopt_baseline(snapshot.meta.world_objects.clone());
     }
 }
 fn encode_player(out: &mut WireWriter, baseline: &PlayerState, current: &PlayerState) {
