@@ -408,8 +408,7 @@ fn publish_client_action_input(
         physical.movement_ready = false;
         physical.look_ready = false;
     } else {
-        out.pad_sensitivity =
-            settings.pad_sensitivity / frame::GameSettings::PAD_SENSITIVITY_DEFAULT;
+        out.pad_sensitivity = settings.pad_look_sensitivity();
         out.pad_ads_sensitivity = settings.pad_ads_sensitivity;
         out.pad_acceleration = settings.pad_acceleration;
         if let Some(pad) = pad {
