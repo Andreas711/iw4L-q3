@@ -564,6 +564,85 @@
     "fields": {
      "item_type": 12,
      "static_flags": 0,
+     "dvar": "ui_pad_acceleration",
+     "choices": [
+      [
+       "@MENU_DISABLED",
+       "0"
+      ],
+      [
+       "@MENU_ENABLED",
+       "1"
+      ]
+     ],
+     "vis_exp": "1",
+     "disabled_exp": "0",
+     "text_key": "",
+     "text_exp": "",
+     "text_align_mode": 10,
+     "text_align_x": -8,
+     "text_align_y": 0,
+     "fore_color": [
+      1,
+      1,
+      1,
+      1
+     ],
+     "rect": {
+      "x": 232,
+      "y": 148,
+      "w": 344,
+      "h": 20
+     },
+     "handlers": {
+      "action": [
+       {
+        "Script": "play mouse_click;"
+       }
+      ],
+      "focus": [
+       {
+        "Script": "play mouse_over; setItemColor self backcolor 0 0 0 1;"
+       }
+      ],
+      "leave_focus": [
+       {
+        "Script": "setItemColor self backcolor 0 0 0 0;"
+       }
+      ]
+     },
+     "text_scale": 0.375,
+     "style": 1,
+     "background": "menu_button_selection_bar",
+     "back_color": [
+      0,
+      0,
+      0,
+      0
+     ],
+     "name": "ui_pad_acceleration"
+    }
+   },
+   {
+    "name": "video_display_mode_label",
+    "fields": {
+     "vis_exp": "1",
+     "text_key": "Look Acceleration",
+     "rect": {
+      "x": 232,
+      "y": 148,
+      "w": 344,
+      "h": 20
+     },
+     "text_scale": 0.32,
+     "name": "controller_acceleration_label"
+    }
+   },
+   {
+    "name": "video_display_mode",
+    "fields": {
+     "item_type": 12,
+     "static_flags": 0,
      "dvar": "ui_pad_aim_assist",
      "choices": [
       [
@@ -586,7 +665,7 @@
      ],
      "rect": {
       "x": 232,
-      "y": 148,
+      "y": 168,
       "w": 344,
       "h": 20
      },
@@ -626,7 +705,7 @@
      "text_key": "Aim Assist",
      "rect": {
       "x": 232,
-      "y": 148,
+      "y": 168,
       "w": 344,
       "h": 20
      },
@@ -665,7 +744,7 @@
      ],
      "rect": {
       "x": 232,
-      "y": 168,
+      "y": 188,
       "w": 344,
       "h": 20
      },
@@ -705,7 +784,7 @@
      "text_key": "Vibration",
      "rect": {
       "x": 232,
-      "y": 168,
+      "y": 188,
       "w": 344,
       "h": 20
      },
@@ -735,7 +814,7 @@
      ],
      "rect": {
       "x": 420,
-      "y": 188,
+      "y": 208,
       "w": 112,
       "h": 20
      },
@@ -775,7 +854,7 @@
      "vis_exp": "1",
      "rect": {
       "x": 232,
-      "y": 188,
+      "y": 208,
       "w": 344,
       "h": 20
      },
@@ -804,7 +883,7 @@
      ],
      "rect": {
       "x": 420,
-      "y": 208,
+      "y": 228,
       "w": 112,
       "h": 20
      },
@@ -844,7 +923,7 @@
      "vis_exp": "1",
      "rect": {
       "x": 232,
-      "y": 208,
+      "y": 228,
       "w": 344,
       "h": 20
      },
@@ -890,7 +969,7 @@
      ],
      "rect": {
       "x": 232,
-      "y": 228,
+      "y": 248,
       "w": 344,
       "h": 20
      },
@@ -930,7 +1009,7 @@
      "text_key": "Controller Prompts",
      "rect": {
       "x": 232,
-      "y": 228,
+      "y": 248,
       "w": 344,
       "h": 20
      },
@@ -960,7 +1039,7 @@
      ],
      "rect": {
       "x": 232,
-      "y": 248,
+      "y": 268,
       "w": 344,
       "h": 20
      },
@@ -1000,7 +1079,7 @@
      "text_key": "Test Vibration",
      "rect": {
       "x": 232,
-      "y": 248,
+      "y": 268,
       "w": 344,
       "h": 20
      },

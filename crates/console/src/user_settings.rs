@@ -358,6 +358,7 @@ fn serialize_settings(settings: &frame::GameSettings, binds: &KeyBinds) -> Strin
         format!("pad_ads_sensitivity={:.2}", settings.pad_ads_sensitivity),
         format!("pad_invert={}", settings.pad_invert),
         format!("pad_curve={}", settings.pad_curve),
+        format!("pad_acceleration={}", settings.pad_acceleration),
         format!("pad_aim_assist={}", settings.pad_aim_assist),
         format!("pad_prompts={}", settings.pad_prompts),
         format!("pad_vibration={}", settings.pad_vibration),
@@ -451,6 +452,7 @@ fn parse_settings(source: &str, settings: &mut frame::GameSettings, binds: &mut 
             "pad_ads_sensitivity" => parse_into(value, &mut settings.pad_ads_sensitivity),
             "pad_invert" => parse_into(value, &mut settings.pad_invert),
             "pad_curve" => parse_into(value, &mut settings.pad_curve),
+            "pad_acceleration" => parse_into(value, &mut settings.pad_acceleration),
             "pad_aim_assist" => parse_into(value, &mut settings.pad_aim_assist),
             "pad_prompts" => parse_into(value, &mut settings.pad_prompts),
             "pad_vibration" => parse_into(value, &mut settings.pad_vibration),
@@ -534,6 +536,7 @@ pub(crate) fn native_menu_settings(
             "ui_pad_ads_sensitivity" => parse_into(value, &mut settings.pad_ads_sensitivity),
             "ui_pad_invert" => settings.pad_invert = value == "1",
             "ui_pad_curve" => parse_into(value, &mut settings.pad_curve),
+            "ui_pad_acceleration" => settings.pad_acceleration = value == "1",
             "ui_pad_aim_assist" => parse_into(value, &mut settings.pad_aim_assist),
             "ui_pad_prompts" => parse_into(value, &mut settings.pad_prompts),
             "ui_pad_test_rumble" => {
@@ -576,6 +579,10 @@ pub(crate) fn native_menu_settings(
     );
     dvars.set("ui_pad_invert", if settings.pad_invert { "1" } else { "0" });
     dvars.set("ui_pad_curve", settings.pad_curve.to_string());
+    dvars.set(
+        "ui_pad_acceleration",
+        if settings.pad_acceleration { "1" } else { "0" },
+    );
     dvars.set("ui_pad_aim_assist", settings.pad_aim_assist.to_string());
     dvars.set("ui_pad_prompts", settings.pad_prompts.to_string());
     dvars.set(
