@@ -38,6 +38,11 @@ pub fn is_ads_allowed(
 
     let ws = ps.weaponstate_primary;
 
+    // Reload start, magazine/shell insertion, interruption and end all leave ADS.
+    if crate::WeaponState::from_i32(ws).is_ok_and(crate::WeaponState::is_reload_family) {
+        return false;
+    }
+
     if (0x10..=0x15).contains(&ws) {
         return false;
     }
