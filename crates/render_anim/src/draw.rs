@@ -235,6 +235,11 @@ pub struct FpvDrawPlan {
     pub lighting_handle: u32,
     pub visible: bool,
 
+    /// Native/non-IW4 viewmodel geometry can stay drawable even while the
+    /// scene's normal IW4 viewmodel DObj is temporarily hidden (vault, mantle,
+    /// weapon lowering, etc.).
+    pub force_scene_admission: bool,
+
     pub hands_plan_n: Option<u32>,
     pub gun_plan_n: Option<u32>,
 
