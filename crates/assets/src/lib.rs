@@ -40,7 +40,8 @@ pub use plugin::AssetPlugin;
 pub use prepared::{
     MapFacts, MatchMaterials, MatchType10SoundHints, PreparedBodies, PreparedBodyClips,
     PreparedDestructibleDeath, PreparedFpvMeshes, PreparedGaps, PreparedLocalizedStrings,
-    PreparedMap, PreparedProjectileMeshes, PreparedWeapons, PreparedWorldWeapons, PreparedXAnims,
+    PreparedMap, PreparedProjectileMeshes, PreparedQ3WeaponModels, PreparedWeapons,
+    PreparedWorldWeapons, PreparedXAnims,
     PreparedXModelWalkCensus, SessionCompass,
 };
 pub use session_load::{
