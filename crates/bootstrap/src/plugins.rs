@@ -15,6 +15,7 @@ use frame::RuntimeRole;
 use hud::HudPlugin;
 use net::NetPlugin;
 use render::RenderPlugin;
+use render_q3::RenderQ3Plugin;
 use replay::ReplayPlugin;
 use session::SessionPlugin;
 use ui::UiPlugin;
@@ -42,6 +43,7 @@ pub fn add_runtime_plugins_with_role(app: &mut App, role: RuntimeRole) {
         .add_plugins(AudioPlugin)
         .add_plugins(ReplayPlugin)
         .add_plugins(RenderPlugin)
+        .add_plugins(RenderQ3Plugin)
         .add_plugins(SessionPlugin);
 
     app.edit_schedule(Update, |schedule| {
