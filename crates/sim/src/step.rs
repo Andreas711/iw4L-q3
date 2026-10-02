@@ -946,7 +946,14 @@ fn apply_actions(world: &mut FrameWorld, tick: Tick, actions: &[(ClientId, Clien
                 request_id: _,
                 amount,
             } => {
-                if let Some(weapon) = crate::q3_debug_give_weapon(amount) {
+                if let Some(weapon) = crate::q3_debug_refill_weapon(amount) {
+                    if !world.bootstrap_ref().allow_debug_actions {
+                        continue;
+                    }
+                    if let Some(weapon) = weapon_q3::Quake3Weapon::from_id(weapon) {
+                        world.q3_refill_weapon(*id, weapon);
+                    }
+                } else if let Some(weapon) = crate::q3_debug_give_weapon(amount) {
                     if !world.bootstrap_ref().allow_debug_actions {
                         continue;
                     }
