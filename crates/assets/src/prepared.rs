@@ -66,6 +66,14 @@ pub struct PreparedKillstreaks(pub Vec<String>);
 pub struct PreparedWeapons(pub std::sync::Arc<WeaponRegistry>);
 
 #[derive(Clone, Debug, Default, Resource)]
+pub struct PreparedQ3WeaponModels {
+    pub source: Option<std::path::PathBuf>,
+    pub assets: std::sync::Arc<asset_q3::Q3WeaponAssetSet>,
+    pub error: Option<String>,
+}
+
+
+#[derive(Clone, Debug, Default, Resource)]
 pub struct MatchType10SoundHints(pub Vec<String>);
 
 #[derive(Clone, Debug, Default, Resource)]
