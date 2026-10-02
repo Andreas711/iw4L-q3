@@ -60,6 +60,7 @@ members = [
     "crates/render_fx",
     "crates/render_gpu",
     "crates/render_material",
+    "crates/render_q3",
     "crates/render_scene",
     "crates/replay",
     "crates/session",
@@ -86,6 +87,7 @@ bevy = { version = "0.19", default-features = false, features = [
     "bevy_text",
     "bevy_render",
     "bevy_core_pipeline",
+    "bevy_pbr",
     "bevy_log",
     "bevy_sprite",
     "bevy_sprite_render",
@@ -162,6 +164,7 @@ render_frontend = { path = "crates/render_frontend" }
 render_fx = { path = "crates/render_fx" }
 render_gpu = { path = "crates/render_gpu" }
 render_material = { path = "crates/render_material" }
+render_q3 = { path = "crates/render_q3" }
 render_scene = { path = "crates/render_scene" }
 session = { path = "crates/session" }
 replay = { path = "crates/replay" }
