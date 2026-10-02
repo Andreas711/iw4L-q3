@@ -62,6 +62,15 @@ pub const fn weapon_asset_spec(weapon: Quake3Weapon) -> WeaponAssetSpec {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Q3BlendMode {
+    #[default]
+    Opaque,
+    Alpha,
+    Add,
+    Multiply,
+}
+
 #[derive(Clone, Debug)]
 pub struct Q3Texture {
     pub path: String,
@@ -81,6 +90,7 @@ pub struct Q3WeaponModel {
     /// One decoded colour texture per weapon-model surface when the MD3 shader
     /// resolves directly to an image in pak0.pk3.
     pub surface_textures: Vec<Option<Q3Texture>>,
+    pub surface_blends: Vec<Q3BlendMode>,
 }
 
 #[derive(Clone, Debug)]
@@ -285,6 +295,81 @@ fn load_shader_maps(pk3: &mut Pk3Archive) -> HashMap<String, String> {
     maps
 }
 
+fn load_shader_blends(pk3: &mut Pk3Archive) -> HashMap<String, Q3BlendMode> {
+    let shader_names: Vec<String> = pk3
+        .names()
+        .iter()
+        .filter(|name| name.starts_with("scripts/") && name.ends_with(".shader"))
+        .cloned()
+        .collect();
+    let mut blends = HashMap::new();
+
+    for name in shader_names {
+        let Ok(bytes) = pk3.read(&name) else {
+            continue;
+        };
+        let text = String::from_utf8_lossy(&bytes);
+        let tokens = shader_tokens(&text);
+        let mut i = 0usize;
+        while i + 1 < tokens.len() {
+            let shader_name = tokens[i].replace('\\', "/").to_ascii_lowercase();
+            if tokens[i + 1] != "{" {
+                i += 1;
+                continue;
+            }
+
+            i += 2;
+            let mut depth = 1i32;
+            let mut blend = Q3BlendMode::Opaque;
+            while i < tokens.len() && depth > 0 {
+                match tokens[i].to_ascii_lowercase().as_str() {
+                    "{" => {
+                        depth += 1;
+                        i += 1;
+                    }
+                    "}" => {
+                        depth -= 1;
+                        i += 1;
+                    }
+                    "blendfunc" if depth >= 2 && i + 1 < tokens.len() => {
+                        let first = tokens[i + 1].to_ascii_lowercase();
+                        blend = match first.as_str() {
+                            "add" => Q3BlendMode::Add,
+                            "blend" => Q3BlendMode::Alpha,
+                            "filter" => Q3BlendMode::Multiply,
+                            "gl_one"
+                                if i + 2 < tokens.len()
+                                    && tokens[i + 2].eq_ignore_ascii_case("gl_one") =>
+                            {
+                                Q3BlendMode::Add
+                            }
+                            "gl_dst_color"
+                                if i + 2 < tokens.len()
+                                    && tokens[i + 2].eq_ignore_ascii_case("gl_zero") =>
+                            {
+                                Q3BlendMode::Multiply
+                            }
+                            "gl_src_alpha"
+                                if i + 2 < tokens.len()
+                                    && tokens[i + 2]
+                                        .eq_ignore_ascii_case("gl_one_minus_src_alpha") =>
+                            {
+                                Q3BlendMode::Alpha
+                            }
+                            _ => blend,
+                        };
+                        i += if first.starts_with("gl_") { 3 } else { 2 };
+                    }
+                    _ => i += 1,
+                }
+            }
+            blends.entry(shader_name).or_insert(blend);
+        }
+    }
+
+    blends
+}
+
 fn image_format(path: &str) -> Option<image::ImageFormat> {
     let extension = Path::new(path)
         .extension()
@@ -378,6 +463,7 @@ pub fn load_weapon_models(baseq3: impl AsRef<Path>) -> Result<Q3WeaponAssetSet, 
     let pak0 = pak0_path(baseq3.as_ref())?;
     let mut pk3 = Pk3Archive::open(&pak0)?;
     let shader_maps = load_shader_maps(&mut pk3);
+    let shader_blends = load_shader_blends(&mut pk3);
     let mut set = Q3WeaponAssetSet {
         source: pak0,
         ..Default::default()
@@ -417,6 +503,22 @@ pub fn load_weapon_models(baseq3: impl AsRef<Path>) -> Result<Q3WeaponAssetSet, 
                             .and_then(|shader| read_q3_texture_resolved(&mut pk3, &shader_maps, shader))
                     })
                     .collect();
+                let surface_blends = model
+                    .surfaces
+                    .iter()
+                    .map(|surface| {
+                        surface
+                            .shaders
+                            .first()
+                            .and_then(|shader| {
+                                shader_blends.get(
+                                    &shader.replace('\\', "/").to_ascii_lowercase(),
+                                )
+                            })
+                            .copied()
+                            .unwrap_or_default()
+                    })
+                    .collect();
                 set.models.push(Q3WeaponModel {
                     weapon,
                     path: spec.model.to_owned(),
@@ -425,6 +527,7 @@ pub fn load_weapon_models(baseq3: impl AsRef<Path>) -> Result<Q3WeaponAssetSet, 
                     barrel,
                     flash,
                     surface_textures,
+                    surface_blends,
                 });
             }
             Err(Pk3Error::Missing(_)) => set.missing.push(spec.model.to_owned()),
@@ -460,11 +563,28 @@ pub fn load_weapon_models(baseq3: impl AsRef<Path>) -> Result<Q3WeaponAssetSet, 
                             })
                     })
                     .collect();
+                let surface_blends = model
+                    .surfaces
+                    .iter()
+                    .map(|surface| {
+                        surface
+                            .shaders
+                            .first()
+                            .and_then(|shader| {
+                                shader_blends.get(
+                                    &shader.replace('\\', "/").to_ascii_lowercase(),
+                                )
+                            })
+                            .copied()
+                            .unwrap_or_default()
+                    })
+                    .collect();
                 set.projectiles.push(Q3ProjectileModel {
                     weapon,
                     path: path.to_owned(),
                     model,
                     surface_textures,
+                    surface_blends,
                 });
             }
             Err(Pk3Error::Missing(_)) => set.missing.push(path.to_owned()),
