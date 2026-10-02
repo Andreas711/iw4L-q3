@@ -61,6 +61,7 @@ pub struct Emission {
     pub attacker_life: LifeSequence,
     pub hand: u8,
     pub weapon: u32,
+    pub q3_weapon: Option<weapon_q3::Quake3Weapon>,
     pub origin: [f32; 3],
     pub direction: [f32; 3],
     pub max_range: f32,
@@ -1187,6 +1188,7 @@ pub(crate) fn fire_q3_weapon_debug(
             attacker_life: life,
             hand: 0,
             weapon: carrier,
+            q3_weapon: Some(q3_weapon),
             origin,
             direction,
             max_range: spec.range,
@@ -1233,6 +1235,7 @@ pub(crate) fn phase_emit(world: &FrameWorld, shots: &[AcceptedShot]) -> Vec<Emis
                 attacker_life: shot.attacker_life,
                 hand: shot.hand,
                 weapon: shot.weapon,
+                q3_weapon: None,
                 origin: shot.origin,
                 direction: spread_pellet_direction(shot.angles, shot.spread_degrees, &mut rng),
                 max_range: facts.bullet_range(),
@@ -1464,7 +1467,7 @@ pub(crate) fn phase_trace(
                         amount: scaled,
                         killcam_entity_start_time: 0,
                         inflictor_origin: None,
-                        hitloc,
+                        hitloc: if em.q3_weapon.is_some() { 0 } else { hitloc },
                     };
                     fatal = matches!(
                         crate::damage::apply_damage_attempt(world, tick, &attempt),
