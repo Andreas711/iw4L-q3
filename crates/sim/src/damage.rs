@@ -180,7 +180,7 @@ pub(crate) fn apply_q3_explosion_blast(
         if attempt.target == attempt.attacker {
             attempt.amount = weapon_q3::self_damage(attempt.amount);
         }
-        let _ = apply_damage_attempt(world, tick, &attempt);
+        let _ = apply_q3_damage_attempt(world, tick, &attempt);
     }
 
     apply_glass_blast_hits(world, tick, glass);
@@ -767,6 +767,29 @@ fn flashbang_amount_distance(dist: f32, min_r: f32, max_r: f32) -> f32 {
 
 fn flashbang_amount_angle(dot: f32) -> f32 {
     (dot + 1.0) * 0.5
+}
+
+pub(crate) fn apply_q3_damage_attempt(
+    world: &mut FrameWorld,
+    tick: Tick,
+    intent: &DamageAttempt,
+) -> DamageOutcome {
+    if intent.amount <= 0 {
+        return DamageOutcome::Refused(DamageRefusal::NonPositive);
+    }
+    let Some(meta) = world.client_meta(intent.target) else {
+        return DamageOutcome::Refused(DamageRefusal::MissingTarget);
+    };
+    if meta.lifecycle != ClientLifecycle::Alive {
+        return DamageOutcome::Refused(DamageRefusal::TargetNotAlive);
+    }
+    if meta.life_sequence != intent.target_life {
+        return DamageOutcome::Refused(DamageRefusal::StaleLife);
+    }
+
+    // Quake III does not have IW4 per-hit-location weapon multipliers.
+    // The supplied Q3 damage is already the authoritative amount.
+    crate::script_player::damage(world, tick, intent, intent.amount)
 }
 
 pub(crate) fn apply_damage_attempt(
