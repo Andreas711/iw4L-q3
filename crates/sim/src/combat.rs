@@ -1080,12 +1080,15 @@ pub(crate) fn fire_q3_weapon_debug(
         return crate::missile::fire_q3_projectile_debug(world, tick, id, q3_weapon);
     }
 
+    if q3_weapon == weapon_q3::Quake3Weapon::Gauntlet {
+        return fire_q3_gauntlet_debug(world, tick, id);
+    }
+
     let spec = match q3_weapon {
         weapon_q3::Quake3Weapon::Machinegun => weapon_q3::machinegun::MACHINEGUN,
         weapon_q3::Quake3Weapon::Shotgun => weapon_q3::shotgun::SHOTGUN,
         weapon_q3::Quake3Weapon::LightningGun => weapon_q3::lightning::LIGHTNING,
         weapon_q3::Quake3Weapon::Railgun => weapon_q3::railgun::RAILGUN,
-        weapon_q3::Quake3Weapon::Gauntlet => return false,
         _ => return false,
     };
 
@@ -1197,6 +1200,52 @@ pub(crate) fn fire_q3_weapon_debug(
     }
 
     let _ = phase_trace(world, tick, &emissions);
+    true
+}
+
+fn fire_q3_gauntlet_debug(world: &mut FrameWorld, tick: Tick, id: ClientId) -> bool {
+    let Some(ps) = world.player(id).copied() else {
+        return false;
+    };
+    let carrier = ps
+        .weapons
+        .iter()
+        .copied()
+        .filter(|&weapon| weapon > 0)
+        .map(|weapon| weapon as u32)
+        .find(|&weapon| world.combat_facts_for(weapon).is_some())
+        .or_else(|| (1..world.weapon_combat_len() as u32).find(|&weapon| world.combat_facts_for(weapon).is_some()));
+    let Some(carrier) = carrier else {
+        return false;
+    };
+    let life = world
+        .client_meta(id)
+        .map(|m| m.life_sequence)
+        .unwrap_or_default();
+    let shot_id = world.alloc_shot_id();
+    let combat_seed = world.combat_rng_mut().next_u32();
+    let (direction, _, _) = math_iw4::angle_vectors(ps.viewangles);
+    let eye = [
+        ps.origin[0],
+        ps.origin[1],
+        ps.origin[2] + ps.view_height_current,
+    ];
+    let origin = core::array::from_fn(|i| eye[i] + direction[i] * 14.0);
+    let emission = Emission {
+        combat_seed,
+        shot_id,
+        pellet: PelletId(0),
+        attacker: id,
+        attacker_life: life,
+        hand: 0,
+        weapon: carrier,
+        q3_weapon: Some(weapon_q3::Quake3Weapon::Gauntlet),
+        origin,
+        direction,
+        max_range: weapon_q3::gauntlet::GAUNTLET.range,
+        base_damage: weapon_q3::gauntlet::GAUNTLET.damage,
+    };
+    let _ = phase_trace(world, tick, core::slice::from_ref(&emission));
     true
 }
 
