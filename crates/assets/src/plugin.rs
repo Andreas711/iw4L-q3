@@ -11,6 +11,18 @@ fn load_q3_weapon_models(
     mut prepared: ResMut<crate::PreparedQ3WeaponModels>,
     mut images: ResMut<Assets<Image>>,
 ) {
+    let white = Image::new(
+        Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        vec![255, 255, 255, 255],
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    prepared.fallback_white = Some(images.add(white));
     let Some(baseq3) = asset_q3::q3_baseq3_from_env() else {
         prepared.error = Some(
             "Quake III baseq3 not found; set IW4L_Q3_BASEQ3 to baseq3 or pak0.pk3".to_owned(),
