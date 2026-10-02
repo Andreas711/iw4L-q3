@@ -90,6 +90,9 @@ pub struct ProjectileState {
     pub owner: ClientId,
     pub owner_life: LifeSequence,
     pub weapon: u32,
+    /// Quake III gameplay identity when this projectile is using Q3 rules.
+    /// `weapon` remains an IW4 presentation carrier until native Q3 assets land.
+    pub q3_weapon: Option<weapon_q3::Quake3Weapon>,
     pub origin: [f32; 3],
     pub velocity: [f32; 3],
     pub pos: Trajectory,
@@ -332,6 +335,7 @@ pub(crate) fn spawn_grenade_projectile(
         owner,
         owner_life,
         weapon,
+        q3_weapon: None,
         origin,
         velocity: pos.tr_delta,
         pos,
