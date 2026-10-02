@@ -507,7 +507,7 @@ pub(crate) fn predict_projectile(
     now: i32,
     duration_ms: i32,
 ) -> Option<[f32; 3]> {
-    let facts = required_projectile_facts(world, projectile.weapon);
+    let facts = projectile_runtime_facts(world, &projectile);
     let attached = world.missile_collision_models(projectile.id);
     let models: Vec<_> = world
         .entity_collision_capabilities()
@@ -633,7 +633,7 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
         let _ = world.remove_projectile_by_number(entnum);
         return;
     }
-    let facts = required_projectile_facts(world, projectile.weapon);
+    let facts = projectile_runtime_facts(world, &projectile);
     if let Some(target) = projectile.attached_to {
         if let Some(origin) = target.resolve(world) {
             projectile.origin = origin;
@@ -1337,7 +1337,7 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
     let resolves_damage = world.publishes_snapshot();
     if resolves_damage {
         for (projectile, target) in direct_hits {
-            let facts = required_projectile_facts(world, projectile.weapon);
+            let facts = projectile_runtime_facts(world, &projectile);
             let Some(target_meta) = world.client_meta(target) else {
                 continue;
             };
@@ -1376,7 +1376,7 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
         if !info.splash {
             continue;
         }
-        let facts = required_projectile_facts(world, info.projectile.weapon);
+        let facts = projectile_runtime_facts(world, &info.projectile);
         let event_kind = if facts.projectile_explosion_type == 2 {
             entity_iw4::EntityEventKind::FLASHBANG_EXPLODE
         } else {
@@ -1494,7 +1494,7 @@ fn arm_impact_payload(
     normal: [f32; 3],
     collider: Option<ColliderId>,
 ) {
-    let weapon = required_projectile_facts(world, projectile.weapon).impact_payload_weapon;
+    let weapon = projectile_runtime_facts(world, &projectile).impact_payload_weapon;
     let facts = required_projectile_facts(world, weapon);
     let origin = core::array::from_fn(|i| point[i] + normal[i] * 0.25);
     stick_missile(tick, projectile, origin);
@@ -1588,7 +1588,7 @@ fn settle_equipment(
     normal: [f32; 3],
     fraction: f32,
 ) {
-    let facts = required_projectile_facts(world, projectile.weapon);
+    let facts = projectile_runtime_facts(world, &projectile);
     let yaw = evaluate_trajectory(&projectile.apos, level_time_ms(tick))[1];
     if facts.stickiness == 3 {
         apply_missile_land_angles(world, tick, projectile, normal, fraction);
@@ -1648,7 +1648,7 @@ fn knife_impact(
     let time = level_time_ms(tick);
     let hit_time =
         time - crate::MATCH_TICK_MS as i32 + (crate::MATCH_TICK_MS as f32 * fraction) as i32;
-    let facts = required_projectile_facts(world, projectile.weapon);
+    let facts = projectile_runtime_facts(world, &projectile);
     if facts.ballistic_blade {
         let origin = core::array::from_fn(|i| projectile.origin[i] + normal[i] * 0.25);
         stick_missile(tick, projectile, origin);
@@ -1753,7 +1753,7 @@ fn bounce_missile(
     projectile.grounded |= normal[2] > 0.7;
     projectile.velocity = projectile.velocity_at(hit_time);
     let incoming = projectile.velocity;
-    let facts = required_projectile_facts(world, projectile.weapon);
+    let facts = projectile_runtime_facts(world, &projectile);
     bounce_velocity(projectile, normal, &facts, surf_type);
     let outgoing = projectile.velocity;
     projectile.origin = origin;
@@ -1768,6 +1768,46 @@ fn bounce_missile(
     ]);
     if delta > BOUNCE_EVENT_SPEED_DELTA {
         push_grenade_bounce(world, tick, projectile, surf_type);
+    }
+}
+
+fn projectile_runtime_facts(
+    world: &FrameWorld,
+    projectile: &ProjectileState,
+) -> EquipmentRuntimeFacts {
+    if let Some(q3) = projectile.q3_weapon {
+        return q3_projectile_facts(q3);
+    }
+    required_projectile_facts(world, projectile.weapon)
+}
+
+fn q3_projectile_facts(weapon: weapon_q3::Quake3Weapon) -> EquipmentRuntimeFacts {
+    let spec = match weapon {
+        weapon_q3::Quake3Weapon::GrenadeLauncher => weapon_q3::grenade::GRENADE,
+        weapon_q3::Quake3Weapon::RocketLauncher => weapon_q3::rocket::ROCKET,
+        weapon_q3::Quake3Weapon::PlasmaGun => weapon_q3::plasma::PLASMA,
+        weapon_q3::Quake3Weapon::Bfg => weapon_q3::bfg::BFG,
+        _ => panic!("non-projectile Q3 weapon in projectile runtime"),
+    };
+    let grenade = matches!(weapon, weapon_q3::Quake3Weapon::GrenadeLauncher);
+    EquipmentRuntimeFacts {
+        impact_damage: spec.direct_damage,
+        fuse_time_ms: if grenade { spec.lifetime_ms } else { 0 },
+        timed_detonation: grenade,
+        proj_impact_explode: !grenade,
+        explosion_radius: spec.splash_radius as i32,
+        explosion_radius_min: 0,
+        explosion_inner_damage: spec.splash_damage,
+        explosion_outer_damage: 0,
+        projectile_speed: spec.speed as i32,
+        weap_type: if grenade {
+            weapon_iw4::WEAPTYPE_GRENADE
+        } else {
+            weapon_iw4::WEAPTYPE_PROJECTILE
+        },
+        parallel_bounce: grenade.then_some([0.65; 31]),
+        perpendicular_bounce: grenade.then_some([0.65; 31]),
+        ..Default::default()
     }
 }
 
