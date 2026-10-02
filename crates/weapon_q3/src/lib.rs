@@ -154,4 +154,27 @@ mod tests {
         assert!(!gate.can_fire(2499));
         assert!(gate.can_fire(2500));
     }
+
+    #[test]
+    fn q3_weapon_ids_round_trip() {
+        for id in 1u8..=9 {
+            let weapon = super::Quake3Weapon::from_id(id).expect("Q3 weapon id");
+            assert_eq!(weapon as u8, id);
+            assert!(weapon.refire_ms() > 0);
+            assert!(!weapon.name().is_empty());
+        }
+        assert!(super::Quake3Weapon::from_id(0).is_none());
+        assert!(super::Quake3Weapon::from_id(10).is_none());
+    }
+
+    #[test]
+    fn q3_pickup_ammo_matches_base_game_rules() {
+        use super::Quake3Weapon as W;
+
+        assert_eq!(W::Gauntlet.weapon_pickup_ammo(), -1);
+        assert_eq!(W::Machinegun.weapon_pickup_ammo(), 40);
+        assert_eq!(W::RocketLauncher.weapon_pickup_ammo(), 10);
+        assert_eq!(W::LightningGun.weapon_pickup_ammo(), 100);
+        assert_eq!(W::Bfg.ammo_pickup_amount(), 15);
+    }
 }
