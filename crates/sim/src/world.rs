@@ -3159,6 +3159,19 @@ impl SimState {
         }
     }
 
+    pub(crate) fn q3_refill_weapon(
+        &mut self,
+        id: ClientId,
+        weapon: weapon_q3::Quake3Weapon,
+    ) {
+        let state = self
+            .q3_weapons
+            .entry(id)
+            .or_insert_with(Q3WeaponRuntime::spawn_default);
+        state.owned_mask |= 1 << weapon as u8;
+        state.ammo[weapon as usize] = if weapon.uses_ammo() { 200 } else { -1 };
+    }
+
     pub(crate) fn q3_can_fire(&self, id: ClientId, now_ms: i32) -> bool {
         self.q3_weapons
             .get(&id)
