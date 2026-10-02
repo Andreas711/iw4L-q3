@@ -66,6 +66,9 @@ pub struct Q3WeaponModel {
     pub weapon: Quake3Weapon,
     pub path: String,
     pub model: Md3Model,
+    pub hand: Option<Md3Model>,
+    pub barrel: Option<Md3Model>,
+    pub flash: Option<Md3Model>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -138,10 +141,27 @@ pub fn load_weapon_models(baseq3: impl AsRef<Path>) -> Result<Q3WeaponAssetSet, 
                     path: spec.model.to_owned(),
                     error,
                 })?;
+                let stem = spec.model.strip_suffix(".md3").unwrap_or(spec.model);
+                let read_companion = |pk3: &mut Pk3Archive, suffix: &str| -> Option<Md3Model> {
+                    let path = format!("{stem}_{suffix}.md3");
+                    pk3.read(&path).ok().and_then(|bytes| parse_md3(&bytes).ok())
+                };
+                let mut hand = read_companion(&mut pk3, "hand");
+                if hand.is_none() {
+                    hand = pk3
+                        .read("models/weapons2/shotgun/shotgun_hand.md3")
+                        .ok()
+                        .and_then(|bytes| parse_md3(&bytes).ok());
+                }
+                let barrel = read_companion(&mut pk3, "barrel");
+                let flash = read_companion(&mut pk3, "flash");
                 set.models.push(Q3WeaponModel {
                     weapon,
                     path: spec.model.to_owned(),
                     model,
+                    hand,
+                    barrel,
+                    flash,
                 });
             }
             Err(Pk3Error::Missing(_)) => set.missing.push(spec.model.to_owned()),
