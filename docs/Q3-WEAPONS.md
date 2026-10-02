@@ -52,3 +52,23 @@ inventory for later reselection.
 
 `q3fire <weapon>` remains a direct one-shot debug path and intentionally bypasses inventory/ammo
 for isolated combat testing.
+
+
+## Q3 damage movement semantics
+
+Q3 projectile explosions now use the base-game damage/knockback ordering from `g_combat.c`:
+knockback is calculated from the pre-self-damage amount, while self-inflicted health damage is then
+halved. With the base `g_knockback=1000` and player mass 200, a 100-damage rocket can contribute
+500 units/s of velocity along the normalised blast direction before movement processing. Radius
+knockback also uses Q3's +24 Z bias, which is what makes rocket jumps lift the player.
+
+A projectile direct-hit target is excluded from that projectile's splash pass, matching
+`G_MissileImpact` calling `G_RadiusDamage(..., ignore=other, ...)`. This prevents a direct rocket,
+plasma bolt, grenade or BFG hit from accidentally receiving both direct and splash damage.
+
+Railgun now follows Q3's multi-target trace behaviour for up to four damageable player hits before
+a solid world hit terminates the beam.
+
+Q3 weapon ownership, selected weapon, ammo and next-fire deadline are included in authoritative
+client snapshot metadata, so prediction/replay snapshot adoption no longer silently loses the Q3
+weapon runtime.
