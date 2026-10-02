@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::RenderLayers,
+    core_pipeline::tonemapping::Tonemapping,
     mesh::{Indices, PrimitiveTopology},
     prelude::*,
+    render::view::Msaa,
 };
 use net::{FrameClock, LocalPresentClient, PresentedSnapshot};
 
@@ -88,10 +90,15 @@ fn ensure_q3_view_camera(
             Q3ViewCamera,
             Camera3d::default(),
             Camera {
-                order: 100,
+                // Main IW4 world is earlier; HUD/UI cameras use higher orders.
+                // Keep Q3 viewmodels in their own deterministic overlay slot.
+                order: 10,
+                is_active: false,
                 clear_color: ClearColorConfig::None,
                 ..default()
             },
+            Msaa::Off,
+            Tonemapping::None,
             Projection::from(PerspectiveProjection {
                 fov: Q3_VIEW_FOV_DEGREES.to_radians(),
                 near: 0.01,
@@ -264,11 +271,15 @@ fn sync_q3_view_model(
     local: Res<LocalPresentClient>,
     clock: Res<FrameClock>,
     mut state: ResMut<Q3ViewState>,
+    mut cameras: Query<&mut Camera, With<Q3ViewCamera>>,
     mut roots: Query<(Entity, &mut Transform, &mut Visibility), With<Q3ViewRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let Ok((root_entity, mut root_transform, mut root_visibility)) = roots.single_mut() else {
+        return;
+    };
+    let Ok(mut q3_camera) = cameras.single_mut() else {
         return;
     };
 
@@ -279,17 +290,22 @@ fn sync_q3_view_model(
         .filter(|runtime| runtime.active);
 
     let Some(runtime) = runtime else {
+        q3_camera.is_active = false;
         *root_visibility = Visibility::Hidden;
         state.weapon = None;
         state.recoil = 0.0;
         return;
     };
 
+    q3_camera.is_active = true;
+
     let Some(q3_assets) = q3_assets.as_ref() else {
+        q3_camera.is_active = false;
         *root_visibility = Visibility::Hidden;
         return;
     };
     let Some(model) = q3_assets.assets.model(runtime.weapon) else {
+        q3_camera.is_active = false;
         *root_visibility = Visibility::Hidden;
         return;
     };
