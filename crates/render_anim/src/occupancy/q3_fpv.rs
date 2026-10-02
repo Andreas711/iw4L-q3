@@ -386,18 +386,14 @@ pub(crate) fn override_q3_fpv(
         if count > 0 {
             ranges.push((start, count));
             let mut material = base_material.clone();
-            material.model_lighting_required = false;
-            material.color = q3.texture(runtime.weapon, surface_index).cloned();
+
+            // Keep the already-working IW4 viewmodel technique/sort metadata.
+            // Replacing those fields made the draw disappear completely.
+            // Only swap the authored maps: Q3 colour, no IW4 specular.
+            material.color = q3
+                .texture_or_fallback(runtime.weapon, surface_index)
+                .cloned();
             material.specular = None;
-            material.probe = None;
-            material.atlas = None;
-            material.draw_mode = None;
-            material.cull_mode = Some(bevy::render::render_resource::Face::Back);
-            material.env_map_parms = [0.0; 4];
-            material.lighting_lookup_scale = [0.0; 4];
-            material.atlas_lookup = [0.0; 4];
-            material.sort_key = 0;
-            material.material_sorted_index = None;
             materials.push(material);
         }
     }
