@@ -748,6 +748,8 @@ fn skin_fpv_geometry(
     session_vm: Option<Res<SessionViewmodel>>,
     tess: Option<Res<render_scene::TessMaterials>>,
     fpv_meshes: Option<Res<PreparedFpvMeshes>>,
+    presented: Option<Res<PresentedSnapshot>>,
+    local: Option<Res<LocalPresentClient>>,
     mut fpv_plan: ResMut<crate::FpvDrawPlan>,
     mut status: ResMut<FpvStatusGap>,
     gaps: Res<RenderPresentationGaps>,
@@ -761,6 +763,23 @@ fn skin_fpv_geometry(
     >,
 ) {
     fpv_plan.drawgun = product.drawgun;
+
+    let q3_active = presented
+        .as_ref()
+        .and_then(|snapshot| snapshot.snapshot())
+        .zip(local.as_ref())
+        .and_then(|(snapshot, local)| snapshot.meta.for_client(local.0))
+        .and_then(|meta| meta.q3_weapon)
+        .is_some_and(|runtime| runtime.active);
+    if q3_active {
+        // Q3 owns the FPV geometry while active. Do not let the normal IW4
+        // skin pass write an IW4 rig into the Q3-sized vertex bank. Reset the
+        // generation so the IW4 composition is reinstalled immediately when
+        // q3use off is selected.
+        fpv_plan.rig_generation = 0;
+        return;
+    }
+
     let handle = fpv_plan.lighting_handle;
     match &product.kind {
         FpvPoseKind::Hide => crate::clear_fpv_draw_plan(&mut fpv_plan, handle),
