@@ -8,6 +8,7 @@ pub enum PresentedProjectile {
     Predicted {
         owner: ClientId,
         weapon: u32,
+        q3_weapon: Option<sim::Quake3Weapon>,
         origin: [f32; 3],
         velocity: [f32; 3],
         pos: Trajectory,
@@ -30,16 +31,17 @@ pub fn merge_presented_projectiles(
     let authoritative_local_weapons = authoritative
         .iter()
         .filter(|p| p.owner == local)
-        .map(|p| p.weapon)
+        .map(|p| (p.weapon, p.q3_weapon))
         .collect::<std::collections::HashSet<_>>();
 
     for projectile in predicted.iter().filter(|p| p.owner == local) {
-        if authoritative_local_weapons.contains(&projectile.weapon) {
+        if authoritative_local_weapons.contains(&(projectile.weapon, projectile.q3_weapon)) {
             continue;
         }
         out.push(PresentedProjectile::Predicted {
             owner: projectile.owner,
             weapon: projectile.weapon,
+            q3_weapon: projectile.q3_weapon,
             origin: projectile.origin,
             velocity: projectile.velocity,
             pos: projectile.pos,
@@ -63,6 +65,13 @@ impl PresentedProjectile {
         match self {
             Self::Authoritative(p) => p.weapon,
             Self::Predicted { weapon, .. } => *weapon,
+        }
+    }
+
+    pub fn q3_weapon(&self) -> Option<sim::Quake3Weapon> {
+        match self {
+            Self::Authoritative(p) => p.q3_weapon,
+            Self::Predicted { q3_weapon, .. } => *q3_weapon,
         }
     }
 
