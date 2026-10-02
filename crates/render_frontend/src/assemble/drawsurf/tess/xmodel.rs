@@ -165,7 +165,9 @@ pub fn xmodel_rigid_vert_decl_type(tess_info_byte_10: u8) -> u8 {
 
 #[must_use]
 fn fpv_scene_colour(fpv: &FpvDrawPlan, scene: Option<&crate::GfxScene>) -> bool {
-    fpv.admits_colour() && scene.is_some_and(|s| s.scene_dobj_live(crate::SCENE_VIEWMODEL_ENTNUM))
+    fpv.admits_colour()
+        && (fpv.force_scene_admission
+            || scene.is_some_and(|s| s.scene_dobj_live(crate::SCENE_VIEWMODEL_ENTNUM)))
 }
 
 #[must_use]
