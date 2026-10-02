@@ -226,6 +226,7 @@ impl ClientMatchState {
             radar: self.radar,
             remote_missile: self.remote_missile,
             ammo_by_weapon: self.ammo_by_weapon.clone(),
+            q3_weapon: None,
             taped_mag_spent: self.taped_mag_spent.clone(),
             weapon_shot_count: self.weapon_shot_count,
             burst_latch: self.burst_latch,
