@@ -1038,15 +1038,15 @@ pub fn spread_direction_on_plane(
     }
 }
 
-/// Fire one Quake III Railgun shot through IW4L's authoritative trace/damage path.
+/// Fire a Quake III weapon through IW4L's authoritative combat path.
 ///
-/// This is the first live integration milestone. The currently held (or first owned)
-/// IW4 bullet weapon is used only as an impact/penetration presentation carrier;
-/// Quake III supplies the shot's damage, range and zero-spread direction.
-pub(crate) fn fire_q3_railgun_debug(
+/// Hitscan weapons are live here. Projectile and melee weapons remain explicit
+/// future branches rather than silently borrowing MW2 weapon behaviour.
+pub(crate) fn fire_q3_weapon_debug(
     world: &mut FrameWorld,
     tick: Tick,
     id: ClientId,
+    weapon_id: u8,
 ) -> bool {
     if !world.bootstrap_ref().allow_debug_actions
         || !world
@@ -1056,20 +1056,28 @@ pub(crate) fn fire_q3_railgun_debug(
         return false;
     }
 
+    let spec = match weapon_id {
+        x if x == weapon_q3::Quake3Weapon::Machinegun as u8 => weapon_q3::machinegun::MACHINEGUN,
+        x if x == weapon_q3::Quake3Weapon::Shotgun as u8 => weapon_q3::shotgun::SHOTGUN,
+        x if x == weapon_q3::Quake3Weapon::LightningGun as u8 => weapon_q3::lightning::LIGHTNING,
+        x if x == weapon_q3::Quake3Weapon::Railgun as u8 => weapon_q3::railgun::RAILGUN,
+        _ => return false,
+    };
+
     let Some(ps) = world.player(id).copied() else {
         return false;
     };
 
+    // Q3 behaviour supplies damage/range/spread. Until Q3 presentation assets
+    // land, an owned IW4 bullet weapon is used only for impact/event metadata.
     let is_bullet = |weapon: u32| {
         weapon != 0
-            && world
-                .combat_facts_for(weapon)
-                .is_some_and(|facts| {
-                    matches!(
-                        fire_weapon_kind(facts.weap_type, facts.weap_class),
-                        Some(FireWeaponKind::Bullet)
-                    )
-                })
+            && world.combat_facts_for(weapon).is_some_and(|facts| {
+                matches!(
+                    fire_weapon_kind(facts.weap_type, facts.weap_class),
+                    Some(FireWeaponKind::Bullet)
+                )
+            })
     };
     let carrier = if is_bullet(ps.weapon) {
         Some(ps.weapon)
@@ -1081,7 +1089,7 @@ pub(crate) fn fire_q3_railgun_debug(
             .map(|weapon| weapon as u32)
             .find(|&weapon| is_bullet(weapon))
     };
-    let Some(weapon) = carrier else {
+    let Some(carrier) = carrier else {
         return false;
     };
 
@@ -1091,12 +1099,15 @@ pub(crate) fn fire_q3_railgun_debug(
         .client_meta(id)
         .map(|m| m.life_sequence)
         .unwrap_or_default();
-    let origin = [
+
+    let (forward, right, up) = math_iw4::angle_vectors(ps.viewangles);
+    // Q3 CalcMuzzlePoint: eye position plus 14 units along forward.
+    let eye = [
         ps.origin[0],
         ps.origin[1],
         ps.origin[2] + ps.view_height_current,
     ];
-    let direction = math_iw4::angle_vectors(ps.viewangles).0;
+    let origin = core::array::from_fn(|i| eye[i] + forward[i] * 14.0);
 
     world.push_entity_event(
         tick,
@@ -1104,7 +1115,7 @@ pub(crate) fn fire_q3_railgun_debug(
         entity_iw4::predicted_weapon_fire_event(0, false),
         crate::EntityEventPayload {
             number: id.0 as i32,
-            weapon,
+            weapon: carrier,
             correlation: shot_id.0,
             origin,
             direction: ps.viewangles,
@@ -1115,23 +1126,63 @@ pub(crate) fn fire_q3_railgun_debug(
         .weapon_notes
         .push(crate::equipment::WeaponNote::Fired { owner: id });
 
-    let emission = Emission {
-        combat_seed,
-        shot_id,
-        pellet: PelletId(0),
-        attacker: id,
-        attacker_life: life,
-        hand: 0,
-        weapon,
-        origin,
-        direction,
-        max_range: weapon_q3::railgun::RAILGUN_RANGE,
-        base_damage: weapon_q3::railgun::RAILGUN_DAMAGE,
+    let mut rng = MatchRng::new(combat_seed as u64);
+    let signed = |rng: &mut MatchRng| {
+        (rng.next_u32() as f32 / u32::MAX as f32) * 2.0 - 1.0
     };
-    let _ = phase_trace(world, tick, core::slice::from_ref(&emission));
+    let unit = |rng: &mut MatchRng| rng.next_u32() as f32 / u32::MAX as f32;
+
+    let mut emissions = Vec::with_capacity(spec.pellets as usize);
+    for pellet in 0..spec.pellets {
+        let direction = if weapon_id == weapon_q3::Quake3Weapon::Machinegun as u8 {
+            // Q3 Bullet_Fire: polar angle and independent crandom radii.
+            let theta = unit(&mut rng) * core::f32::consts::TAU;
+            let r = theta.cos() * signed(&mut rng) * spec.spread * 16.0;
+            let u = theta.sin() * signed(&mut rng) * spec.spread * 16.0;
+            let end = core::array::from_fn(|i| {
+                origin[i] + forward[i] * spec.range + right[i] * r + up[i] * u
+            });
+            normalised_delta(origin, end, forward)
+        } else if weapon_id == weapon_q3::Quake3Weapon::Shotgun as u8 {
+            // Q3 ShotgunPattern: two signed spread offsets per pellet.
+            let r = signed(&mut rng) * spec.spread * 16.0;
+            let u = signed(&mut rng) * spec.spread * 16.0;
+            let end = core::array::from_fn(|i| {
+                origin[i] + forward[i] * spec.range + right[i] * r + up[i] * u
+            });
+            normalised_delta(origin, end, forward)
+        } else {
+            forward
+        };
+
+        emissions.push(Emission {
+            combat_seed,
+            shot_id,
+            pellet: PelletId(pellet),
+            attacker: id,
+            attacker_life: life,
+            hand: 0,
+            weapon: carrier,
+            origin,
+            direction,
+            max_range: spec.range,
+            base_damage: spec.damage,
+        });
+    }
+
+    let _ = phase_trace(world, tick, &emissions);
     true
 }
 
+fn normalised_delta(start: [f32; 3], end: [f32; 3], fallback: [f32; 3]) -> [f32; 3] {
+    let delta: [f32; 3] = core::array::from_fn(|i| end[i] - start[i]);
+    let len = (delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]).sqrt();
+    if len > 0.0 {
+        delta.map(|v| v / len)
+    } else {
+        fallback
+    }
+}
 pub(crate) fn phase_emit(world: &FrameWorld, shots: &[AcceptedShot]) -> Vec<Emission> {
     let mut out = Vec::new();
     for shot in shots {
