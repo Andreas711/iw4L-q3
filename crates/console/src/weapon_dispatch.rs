@@ -220,6 +220,19 @@ pub(crate) fn route_weapon_commands(
                 }
                 match resolve_give_id(&weapons.0, arg, &cmd.args[1..]) {
                     Ok(weapon) => {
+                        // give is the single weapon-switch command. Giving an
+                        // IW weapon leaves the Q3 domain before equipping it.
+                        if let Some(amount) = sim::q3_debug_select_amount(0) {
+                            let request_id = seq.allocate();
+                            if let Err(error) = inbox.push(
+                                local.0,
+                                ClientAction::DebugDamage { request_id, amount },
+                            ) {
+                                echo(format!("give: {error}"), &mut console, &mut line);
+                                continue;
+                            }
+                        }
+
                         let request_id = seq.allocate();
                         if let Err(error) =
                             inbox.push(local.0, ClientAction::GiveWeapon { request_id, weapon })
