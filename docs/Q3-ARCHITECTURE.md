@@ -62,8 +62,10 @@ Projectile presentation is the next part of this same boundary: Rocket,
 Grenade, Plasma and BFG visuals should be submitted by `render_q3` from the
 Q3 projectile identity rather than from an IW4 weapon definition.
 
-The console `q3use` / `q3give` commands are development controls. Their
-transport mechanism is not part of Q3 gameplay semantics.
+The normal `give` console command is the development entry point for both
+domains. Bare Q3 weapon names grant and immediately select a Q3 weapon;
+`give weapon/<game:weapon>` returns to the IW domain. The console transport
+mechanism is not part of Q3 gameplay semantics.
 
 ## Target flow
 
