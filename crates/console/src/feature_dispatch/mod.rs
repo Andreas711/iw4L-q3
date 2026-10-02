@@ -238,7 +238,7 @@ pub(crate) fn route_debug_feature_commands(
                     continue;
                 };
                 if weapon != 0 {
-                    let Some(give_amount) = sim::q3_debug_give_amount(weapon) else {
+                    let Some(give_amount) = sim::q3_debug_refill_amount(weapon) else {
                         echo("q3use: invalid weapon id".into(), console, line);
                         continue;
                     };
@@ -271,7 +271,7 @@ pub(crate) fn route_debug_feature_commands(
                     if weapon == 0 {
                         "q3use: queued return to IW4 weapon handling".into()
                     } else {
-                        format!("q3use: equipped Q3 weapon={weapon}; ammo topped up and left click fires it")
+                        format!("q3use: equipped Q3 weapon={weapon}; ammo set to 200 and left click fires it")
                     },
                     console,
                     line,
