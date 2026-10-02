@@ -156,79 +156,62 @@ pub(crate) fn apply_q3_explosion_blast(
     blast: &ExplosionBlast,
     ignore_target: Option<ClientId>,
 ) {
-    if !world.publishes_snapshot() {
+    if !world.publishes_snapshot() || blast.radius <= 0.0 {
         return;
     }
 
-    let attempts = radius_player_attempts(world, blast);
-    let glass = radius_glass_hits(world, blast);
+    // Q3 G_RadiusDamage uses linear falloff from the edge of the target bounds
+    // and a binary CanDamage visibility test. Do not route this through IW4
+    // grenade/glass/destructible logic.
+    let mut attempts = Vec::new();
+    for target in radius_player_candidates(world, blast.origin, blast.radius) {
+        if Some(target) == ignore_target {
+            continue;
+        }
+        let Some(meta) = world.client_meta(target) else {
+            continue;
+        };
+        if meta.lifecycle != ClientLifecycle::Alive {
+            continue;
+        }
+        let Some(bounds) = world.player_area_bounds(target) else {
+            continue;
+        };
+        let dist = radius_damage_distance_to_aabb(blast.origin, bounds.mid(), bounds.half());
+        if dist >= blast.radius {
+            continue;
+        }
+        if player_radius_vis_scale(world, blast.origin, target, None) <= 0.0 {
+            continue;
+        }
+        let amount = (blast.inner_damage * (1.0 - dist / blast.radius)) as i32;
+        if amount <= 0 {
+            continue;
+        }
+        attempts.push(DamageAttempt {
+            splash: true,
+            source: blast.source,
+            pellet: PelletId(0),
+            attacker: blast.attacker,
+            attacker_life: blast.attacker_life,
+            target,
+            target_life: meta.life_sequence,
+            weapon: blast.weapon,
+            amount,
+            killcam_entity_start_time: blast.killcam_entity_start_time,
+            inflictor_origin: Some(blast.origin),
+            hitloc: 0,
+        });
+    }
 
-    for attempt in attempts
-        .into_iter()
-        .filter(|attempt| Some(attempt.target) != ignore_target)
-    {
+    for mut attempt in attempts {
         let raw_damage = attempt.amount;
-        apply_q3_knockback(
-            world,
-            attempt.target,
-            blast.origin,
-            raw_damage,
-            true,
-        );
-
-        let mut attempt = attempt;
+        apply_q3_knockback(world, attempt.target, blast.origin, raw_damage, true);
         if attempt.target == attempt.attacker {
             attempt.amount = weapon_q3::self_damage(attempt.amount);
         }
         let _ = apply_q3_damage_attempt(world, tick, &attempt);
     }
-
-    apply_glass_blast_hits(world, tick, glass);
-    apply_entity_blast(world, blast);
-    crate::t5_destructible::apply_radius(
-        world,
-        tick,
-        &crate::t5_destructible::RadiusDamage {
-            origin: blast.origin,
-            radius: blast.radius,
-            inner: blast.inner_damage,
-            outer: blast.outer_damage,
-            attacker: Some(blast.attacker),
-            exclude: None,
-            cone: blast.cone,
-        },
-    );
-
-    let means = crate::script_player::means(world, blast.source, blast.weapon, 0, true);
-    let ignore_model = world
-        .ecs()
-        .get_resource::<crate::script::Runtime>()
-        .and_then(|runtime| match blast.source {
-            DamageSource::Projectile(id) => runtime
-                .missiles
-                .get(&id)
-                .and_then(|object| runtime.entities.get(object))
-                .and_then(|entity| entity.presence),
-            DamageSource::Radius(id) => Some(id),
-            _ => None,
-        });
-    crate::script::host::triggers::damage_blast(
-        world.ecs(),
-        &crate::script::host::triggers::TriggerBlast {
-            origin: blast.origin,
-            radius: blast.radius,
-            max: blast.inner_damage,
-            min: blast.outer_damage,
-            client: Some(blast.attacker),
-            missile: match blast.source {
-                DamageSource::Projectile(id) => Some(id),
-                _ => None,
-            },
-            means,
-            ignore_model,
-            cone: blast.cone,
-        },
-    );
 }
 
 pub(crate) fn apply_q3_direct_knockback(
