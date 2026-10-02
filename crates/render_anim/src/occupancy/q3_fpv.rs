@@ -237,6 +237,91 @@ impl Default for Q3FpvMotion {
     }
 }
 
+#[derive(Resource, Default)]
+pub(crate) struct Q3FpvTextureSwap {
+    weapon: u8,
+    base_materials: Vec<render_scene::SmodelPassMaterial>,
+    surface_materials: Vec<usize>,
+    slots: Vec<(usize, Option<Handle<Image>>)>,
+}
+
+fn restore_q3_texture_slots(
+    images: &mut assets::image_handles::RuntimeImageHandles,
+    state: &mut Q3FpvTextureSwap,
+) {
+    if state.slots.is_empty() {
+        return;
+    }
+    let pool = images.make_mut();
+    for (slot, original) in state.slots.drain(..) {
+        if let Some(dst) = pool.material_images.get_mut(slot) {
+            *dst = original;
+        }
+    }
+}
+
+fn q3_base_material_candidates(
+    base: &[render_scene::SmodelPassMaterial],
+) -> Vec<usize> {
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for (index, material) in base.iter().enumerate() {
+        let Some(color) = material.color.as_ref() else {
+            continue;
+        };
+        if seen.insert(color.id()) {
+            out.push(index);
+        }
+    }
+    if out.is_empty() && !base.is_empty() {
+        out.push(0);
+    }
+    out
+}
+
+fn bind_q3_surface_textures(
+    q3: &assets::PreparedQ3WeaponModels,
+    weapon: weapon_q3::Quake3Weapon,
+    surface_count: usize,
+    images: &mut assets::image_handles::RuntimeImageHandles,
+    state: &mut Q3FpvTextureSwap,
+) {
+    restore_q3_texture_slots(images, state);
+    state.surface_materials.clear();
+
+    let candidates = q3_base_material_candidates(&state.base_materials);
+    if candidates.is_empty() {
+        state.weapon = weapon as u8;
+        return;
+    }
+
+    let pool = images.make_mut();
+    for surface in 0..surface_count {
+        let base_index = candidates[surface % candidates.len()];
+        state.surface_materials.push(base_index);
+
+        let Some(texture) = q3.texture_or_fallback(weapon, surface).cloned() else {
+            continue;
+        };
+        let Some(base_color) = state.base_materials[base_index].color.as_ref() else {
+            continue;
+        };
+        let Some(slot) = pool
+            .material_images
+            .iter()
+            .position(|handle| handle.as_ref().is_some_and(|handle| handle.id() == base_color.id()))
+        else {
+            continue;
+        };
+
+        if !state.slots.iter().any(|(existing, _)| *existing == slot) {
+            state.slots.push((slot, pool.material_images[slot].clone()));
+        }
+        pool.material_images[slot] = Some(texture);
+    }
+    state.weapon = weapon as u8;
+}
+
 /// Quake III weapon models use X-forward, Y-left, Z-up coordinates.
 /// Bevy camera-local coordinates are X-right, Y-up, -Z-forward.
 fn q3_model_to_camera() -> Mat4 {
@@ -320,17 +405,24 @@ pub(crate) fn override_q3_fpv(
     q3: Option<Res<assets::PreparedQ3WeaponModels>>,
     presented: Res<PresentedSnapshot>,
     local: Res<LocalPresentClient>,
+    mut runtime_images: Option<ResMut<assets::image_handles::RuntimeImageHandles>>,
+    mut texture_swap: ResMut<Q3FpvTextureSwap>,
     mut plan: ResMut<FpvDrawPlan>,
 ) {
-    let Some(snapshot) = presented.snapshot() else {
+    let runtime = presented
+        .snapshot()
+        .and_then(|snapshot| snapshot.meta.for_client(local.0))
+        .and_then(|meta| meta.q3_weapon);
+
+    let Some(runtime) = runtime.filter(|runtime| runtime.active) else {
+        if let Some(images) = runtime_images.as_deref_mut() {
+            restore_q3_texture_slots(images, &mut texture_swap);
+        }
+        texture_swap.weapon = 0;
+        texture_swap.surface_materials.clear();
+        texture_swap.base_materials.clear();
         return;
     };
-    let Some(runtime) = snapshot.meta.for_client(local.0).and_then(|meta| meta.q3_weapon) else {
-        return;
-    };
-    if !runtime.active {
-        return;
-    }
 
     let Some(q3) = q3.as_ref() else {
         return;
@@ -338,9 +430,31 @@ pub(crate) fn override_q3_fpv(
     let Some(entry) = q3.assets.model(runtime.weapon) else {
         return;
     };
-    let Some(base_material) = plan.materials.first().cloned() else {
-        return;
-    };
+
+    // Capture the real IW4 viewmodel materials once, before Q3 replaces the
+    // plan. Their material ordinals give us a valid IW4 shader/technique while
+    // we retarget the exact colour-image slots to the Q3 skin.
+    if texture_swap.base_materials.is_empty() {
+        if plan.materials.is_empty() {
+            return;
+        }
+        texture_swap.base_materials = plan.materials.clone();
+    }
+
+    if texture_swap.weapon != runtime.weapon as u8
+        || texture_swap.surface_materials.len() != entry.model.surfaces.len()
+    {
+        let Some(images) = runtime_images.as_deref_mut() else {
+            return;
+        };
+        bind_q3_surface_textures(
+            q3,
+            runtime.weapon,
+            entry.model.surfaces.len(),
+            images,
+            &mut texture_swap,
+        );
+    }
 
     let tag = tag_weapon(entry);
     let mut packed = Vec::new();
@@ -385,11 +499,13 @@ pub(crate) fn override_q3_fpv(
         let count = indices.len() as u32 - start;
         if count > 0 {
             ranges.push((start, count));
-            let mut material = base_material.clone();
-
-            // Keep the already-working IW4 viewmodel technique/sort metadata.
-            // Replacing those fields made the draw disappear completely.
-            // Only swap the authored maps: Q3 colour, no IW4 specular.
+            let base_index = texture_swap
+                .surface_materials
+                .get(surface_index)
+                .copied()
+                .unwrap_or(0)
+                .min(texture_swap.base_materials.len().saturating_sub(1));
+            let mut material = texture_swap.base_materials[base_index].clone();
             material.color = q3
                 .texture_or_fallback(runtime.weapon, surface_index)
                 .cloned();
