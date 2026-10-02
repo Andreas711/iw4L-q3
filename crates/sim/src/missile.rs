@@ -2,6 +2,7 @@ use crate::combat::{AcceptedShot, spread_direction_on_plane};
 use crate::equipment::{GrenadeLaunchKind, ProjectileState, spawn_grenade_projectile};
 use crate::frame::FrameWorld;
 use crate::identities::MatchRng;
+use crate::match_state::EventAudience;
 use entity_iw4::{
     TR_LINEAR, Trajectory, fire_grenade_no_draw_ms, fire_missile_apos, truncated_tr_delta,
 };
@@ -131,28 +132,8 @@ pub(crate) fn fire_q3_projectile_debug(
     let Some(ps) = world.player(owner).copied() else {
         return false;
     };
-    let is_projectile_carrier = |weapon: u32| {
-        weapon != 0
-            && world
-                .missile_launch_facts(weapon)
-                .is_some()
-    };
-    let carrier = if is_projectile_carrier(ps.weapon) {
-        Some(ps.weapon)
-    } else {
-        ps.weapons
-            .iter()
-            .copied()
-            .filter(|&weapon| weapon > 0)
-            .map(|weapon| weapon as u32)
-            .find(|&weapon| is_projectile_carrier(weapon))
-            .or_else(|| {
-                (1..world.weapon_combat_len() as u32)
-                    .find(|&weapon| is_projectile_carrier(weapon))
-            })
-    };
-    let Some(carrier) = carrier else {
-        diag::warn!(Sim, "q3 projectile needs an owned IW4 projectile weapon as presentation carrier");
+    let Some(carrier) = world.q3_projectile_presentation_carrier(q3_weapon) else {
+        diag::warn!(Sim, "q3 projectile has no loaded IW4 presentation carrier");
         return false;
     };
 
@@ -192,6 +173,24 @@ pub(crate) fn fire_q3_projectile_debug(
         .client_meta(owner)
         .map(|m| m.life_sequence)
         .unwrap_or_default();
+    let shot_id = world.alloc_shot_id();
+    world.push_entity_event(
+        tick,
+        EventAudience::All,
+        entity_iw4::predicted_weapon_fire_event(0, false),
+        crate::EntityEventPayload {
+            number: owner.0 as i32,
+            weapon: carrier,
+            correlation: shot_id.0,
+            origin,
+            direction: ps.viewangles,
+            ..Default::default()
+        },
+    );
+    world
+        .weapon_notes
+        .push(crate::equipment::WeaponNote::Fired { owner });
+
     let deadline = now.saturating_add(spec.lifetime_ms.max(1));
     let projectile = ProjectileState {
         id,
