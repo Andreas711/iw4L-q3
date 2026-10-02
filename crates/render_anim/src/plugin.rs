@@ -23,7 +23,6 @@ impl Plugin for RenderAnimPlugin {
             .init_resource::<crate::draw::DynEntDrawPlan>()
             .add_message::<crate::anim::scene_submission::AnimDObjSceneSubmission>();
         crate::occupancy::fpv_present::register_fpv_present_systems(app);
-        crate::occupancy::q3_fpv::register_q3_fpv_systems(app);
         crate::occupancy::held_sync::register_held_sync_systems(app);
         crate::occupancy::match_reset::register_match_reset_systems(app);
         crate::occupancy::remote_body::register_remote_body_systems(app);
