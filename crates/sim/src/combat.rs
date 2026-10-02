@@ -1056,11 +1056,35 @@ pub(crate) fn fire_q3_weapon_debug(
         return false;
     }
 
-    let spec = match weapon_id {
-        x if x == weapon_q3::Quake3Weapon::Machinegun as u8 => weapon_q3::machinegun::MACHINEGUN,
-        x if x == weapon_q3::Quake3Weapon::Shotgun as u8 => weapon_q3::shotgun::SHOTGUN,
-        x if x == weapon_q3::Quake3Weapon::LightningGun as u8 => weapon_q3::lightning::LIGHTNING,
-        x if x == weapon_q3::Quake3Weapon::Railgun as u8 => weapon_q3::railgun::RAILGUN,
+    let q3_weapon = match weapon_id {
+        x if x == weapon_q3::Quake3Weapon::Gauntlet as u8 => weapon_q3::Quake3Weapon::Gauntlet,
+        x if x == weapon_q3::Quake3Weapon::Machinegun as u8 => weapon_q3::Quake3Weapon::Machinegun,
+        x if x == weapon_q3::Quake3Weapon::Shotgun as u8 => weapon_q3::Quake3Weapon::Shotgun,
+        x if x == weapon_q3::Quake3Weapon::GrenadeLauncher as u8 => weapon_q3::Quake3Weapon::GrenadeLauncher,
+        x if x == weapon_q3::Quake3Weapon::RocketLauncher as u8 => weapon_q3::Quake3Weapon::RocketLauncher,
+        x if x == weapon_q3::Quake3Weapon::LightningGun as u8 => weapon_q3::Quake3Weapon::LightningGun,
+        x if x == weapon_q3::Quake3Weapon::Railgun as u8 => weapon_q3::Quake3Weapon::Railgun,
+        x if x == weapon_q3::Quake3Weapon::PlasmaGun as u8 => weapon_q3::Quake3Weapon::PlasmaGun,
+        x if x == weapon_q3::Quake3Weapon::Bfg as u8 => weapon_q3::Quake3Weapon::Bfg,
+        _ => return false,
+    };
+
+    if matches!(
+        q3_weapon,
+        weapon_q3::Quake3Weapon::GrenadeLauncher
+            | weapon_q3::Quake3Weapon::RocketLauncher
+            | weapon_q3::Quake3Weapon::PlasmaGun
+            | weapon_q3::Quake3Weapon::Bfg
+    ) {
+        return crate::missile::fire_q3_projectile_debug(world, tick, id, q3_weapon);
+    }
+
+    let spec = match q3_weapon {
+        weapon_q3::Quake3Weapon::Machinegun => weapon_q3::machinegun::MACHINEGUN,
+        weapon_q3::Quake3Weapon::Shotgun => weapon_q3::shotgun::SHOTGUN,
+        weapon_q3::Quake3Weapon::LightningGun => weapon_q3::lightning::LIGHTNING,
+        weapon_q3::Quake3Weapon::Railgun => weapon_q3::railgun::RAILGUN,
+        weapon_q3::Quake3Weapon::Gauntlet => return false,
         _ => return false,
     };
 
