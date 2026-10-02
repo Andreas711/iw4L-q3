@@ -239,13 +239,22 @@ fn rebuild_weapon(
         let image = q3_assets
             .texture_or_fallback(model.weapon, surface_index)
             .cloned();
+        let blend = model
+            .surface_blends
+            .get(surface_index)
+            .copied()
+            .unwrap_or_default();
+        let alpha_mode = match blend {
+            asset_q3::Q3BlendMode::Opaque => AlphaMode::Opaque,
+            asset_q3::Q3BlendMode::Alpha => AlphaMode::Blend,
+            asset_q3::Q3BlendMode::Add => AlphaMode::Add,
+            asset_q3::Q3BlendMode::Multiply => AlphaMode::Multiply,
+        };
         let material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
             base_color_texture: image,
             unlit: true,
-            // IW4L draws its exact world after Bevy's opaque pass. Queue Q3
-            // viewmodels in Transparent3d so they are composited afterwards.
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode,
             cull_mode: None,
             fog_enabled: false,
             ..default()
@@ -409,12 +418,24 @@ fn projectile_meshes(
         let Some(mesh) = q3_world_surface_mesh(surface) else {
             continue;
         };
+        let blend = source
+            .surface_blends
+            .get(surface_index)
+            .copied()
+            .unwrap_or_default();
+        let alpha_mode = match blend {
+            asset_q3::Q3BlendMode::Opaque => AlphaMode::Opaque,
+            asset_q3::Q3BlendMode::Alpha => AlphaMode::Blend,
+            asset_q3::Q3BlendMode::Add => AlphaMode::Add,
+            asset_q3::Q3BlendMode::Multiply => AlphaMode::Multiply,
+        };
         let material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
             base_color_texture: q3_assets
                 .projectile_texture_or_fallback(weapon, surface_index)
                 .cloned(),
             unlit: true,
+            alpha_mode,
             cull_mode: None,
             fog_enabled: true,
             ..default()
