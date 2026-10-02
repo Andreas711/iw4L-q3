@@ -64,6 +64,41 @@ impl Quake3Weapon {
     }
 
     #[must_use]
+    pub const fn weapon_pickup_ammo(self) -> i32 {
+        match self {
+            Self::Gauntlet => -1,
+            Self::Machinegun => 40,
+            Self::Shotgun => 10,
+            Self::GrenadeLauncher => 10,
+            Self::RocketLauncher => 10,
+            Self::LightningGun => 100,
+            Self::Railgun => 10,
+            Self::PlasmaGun => 50,
+            Self::Bfg => 20,
+        }
+    }
+
+    #[must_use]
+    pub const fn ammo_pickup_amount(self) -> i32 {
+        match self {
+            Self::Gauntlet => 0,
+            Self::Machinegun => 50,
+            Self::Shotgun => 10,
+            Self::GrenadeLauncher => 5,
+            Self::RocketLauncher => 5,
+            Self::LightningGun => 60,
+            Self::Railgun => 10,
+            Self::PlasmaGun => 30,
+            Self::Bfg => 15,
+        }
+    }
+
+    #[must_use]
+    pub const fn uses_ammo(self) -> bool {
+        !matches!(self, Self::Gauntlet)
+    }
+
+    #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Gauntlet => "gauntlet",
