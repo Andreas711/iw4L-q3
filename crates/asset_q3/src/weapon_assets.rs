@@ -224,7 +224,36 @@ fn load_shader_maps(pk3: &mut Pk3Archive) -> HashMap<String, String> {
                     "map" | "clampmap" if depth >= 2 && i + 1 < tokens.len() => {
                         let candidate = tokens[i + 1].replace('\\', "/");
                         if chosen.is_none()
-                            && !candidate.starts_with('
+                            && !candidate.starts_with("$")
+                            && !candidate.starts_with("*")
+                        {
+                            chosen = Some(candidate);
+                        }
+                        i += 2;
+                    }
+                    "animmap" if depth >= 2 && i + 2 < tokens.len() => {
+                        // animMap <frequency> <image1> <image2> ...
+                        let candidate = tokens[i + 2].replace('\\', "/");
+                        if chosen.is_none()
+                            && !candidate.starts_with("$")
+                            && !candidate.starts_with("*")
+                        {
+                            chosen = Some(candidate);
+                        }
+                        i += 3;
+                    }
+                    _ => i += 1,
+                }
+            }
+            if let Some(image) = chosen {
+                maps.entry(shader_name).or_insert(image);
+            }
+        }
+    }
+    maps
+}
+
+fn image_format(path: &str) -> Option<image::ImageFormat> {
     let extension = Path::new(path)
         .extension()
         .and_then(|value| value.to_str())?
@@ -236,7 +265,6 @@ fn load_shader_maps(pk3: &mut Pk3Archive) -> HashMap<String, String> {
         _ => None,
     }
 }
-
 fn read_q3_texture_resolved(
     pk3: &mut Pk3Archive,
     shader_maps: &HashMap<String, String>,
