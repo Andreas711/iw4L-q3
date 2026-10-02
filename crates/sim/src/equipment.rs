@@ -1380,7 +1380,11 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
                 inflictor_origin: Some(projectile.origin),
                 hitloc: 0,
             };
-            let _ = crate::damage::apply_damage_attempt(world, tick, &intent);
+            if projectile.q3_weapon.is_some() {
+                let _ = crate::damage::apply_q3_damage_attempt(world, tick, &intent);
+            } else {
+                let _ = crate::damage::apply_damage_attempt(world, tick, &intent);
+            }
         }
         for (source, mut hit) in std::mem::take(&mut entity_hits) {
             hit.means = crate::script_player::means(world, source, hit.weapon, 0, false);
@@ -1402,26 +1406,28 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
             continue;
         }
         let facts = projectile_runtime_facts(world, &info.projectile);
-        let event_kind = if facts.projectile_explosion_type == 2 {
-            entity_iw4::EntityEventKind::FLASHBANG_EXPLODE
-        } else {
-            entity_iw4::EntityEventKind::GRENADE_EXPLODE
-        };
-        world.push_entity_event(
-            tick,
-            EventAudience::All,
-            event_kind,
-            crate::EntityEventPayload {
-                number: info.projectile.entnum,
-                attacker_entity_num: info.projectile.owner.0 as i32,
-                weapon: info.projectile.weapon,
-                correlation: info.projectile.id.0,
-                origin: info.origin,
-                direction: info.normal,
-                surf_type: info.surf_type,
-                ..Default::default()
-            },
-        );
+        if info.projectile.q3_weapon.is_none() {
+            let event_kind = if facts.projectile_explosion_type == 2 {
+                entity_iw4::EntityEventKind::FLASHBANG_EXPLODE
+            } else {
+                entity_iw4::EntityEventKind::GRENADE_EXPLODE
+            };
+            world.push_entity_event(
+                tick,
+                EventAudience::All,
+                event_kind,
+                crate::EntityEventPayload {
+                    number: info.projectile.entnum,
+                    attacker_entity_num: info.projectile.owner.0 as i32,
+                    weapon: info.projectile.weapon,
+                    correlation: info.projectile.id.0,
+                    origin: info.origin,
+                    direction: info.normal,
+                    surf_type: info.surf_type,
+                    ..Default::default()
+                },
+            );
+        }
         if !resolves_damage {
             continue;
         }
@@ -1468,14 +1474,16 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
         } else {
             crate::damage::apply_explosion_blast(world, tick, &blast);
         }
-        crate::damage::apply_shared_glass_blast(
-            world,
-            tick,
-            info.origin,
-            facts.explosion_inner_damage,
-            facts.explosion_outer_damage,
-            radius,
-        );
+        if info.projectile.q3_weapon.is_none() {
+            crate::damage::apply_shared_glass_blast(
+                world,
+                tick,
+                info.origin,
+                facts.explosion_inner_damage,
+                facts.explosion_outer_damage,
+                radius,
+            );
+        }
     }
 }
 
