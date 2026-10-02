@@ -31,6 +31,54 @@ pub enum Quake3Weapon {
     Bfg = 9,
 }
 
+impl Quake3Weapon {
+    #[must_use]
+    pub const fn from_id(id: u8) -> Option<Self> {
+        match id {
+            1 => Some(Self::Gauntlet),
+            2 => Some(Self::Machinegun),
+            3 => Some(Self::Shotgun),
+            4 => Some(Self::GrenadeLauncher),
+            5 => Some(Self::RocketLauncher),
+            6 => Some(Self::LightningGun),
+            7 => Some(Self::Railgun),
+            8 => Some(Self::PlasmaGun),
+            9 => Some(Self::Bfg),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn refire_ms(self) -> i32 {
+        match self {
+            Self::Gauntlet => gauntlet::GAUNTLET.refire_ms,
+            Self::Machinegun => machinegun::MACHINEGUN.refire_ms,
+            Self::Shotgun => shotgun::SHOTGUN.refire_ms,
+            Self::GrenadeLauncher => grenade::GRENADE.refire_ms,
+            Self::RocketLauncher => rocket::ROCKET.refire_ms,
+            Self::LightningGun => lightning::LIGHTNING.refire_ms,
+            Self::Railgun => railgun::RAILGUN.refire_ms,
+            Self::PlasmaGun => plasma::PLASMA.refire_ms,
+            Self::Bfg => bfg::BFG.refire_ms,
+        }
+    }
+
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Gauntlet => "gauntlet",
+            Self::Machinegun => "machinegun",
+            Self::Shotgun => "shotgun",
+            Self::GrenadeLauncher => "grenade",
+            Self::RocketLauncher => "rocket",
+            Self::LightningGun => "lightning",
+            Self::Railgun => "railgun",
+            Self::PlasmaGun => "plasma",
+            Self::Bfg => "bfg",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FireGate {
     next_fire_time_ms: i32,
