@@ -189,6 +189,17 @@ pub(crate) fn route_weapon_commands(
                         );
                         continue;
                     }
+                    GiveTarget::Q3(weapon) => {
+                        give_and_equip_q3(
+                            weapon,
+                            &presented,
+                            &local,
+                            &mut inbox,
+                            &mut seq,
+                            |msg| echo(msg, &mut console, &mut line),
+                        );
+                        continue;
+                    }
                     GiveTarget::Weapon(name) => name,
                 };
                 let Some(weapons) = weapons.as_ref() else {
@@ -304,12 +315,13 @@ pub(crate) fn route_weapon_commands(
     }
 }
 
-const GIVE_USAGE: &str = "give ammo | give killstreak/<name> | give weapon/<game:weapon> [attachment...] — resupply ammo, acquire a reward, or equip a weapon";
+const GIVE_USAGE: &str = "give <q3 weapon> | give ammo | give killstreak/<name> | give weapon/<game:weapon> [attachment...] — equip a Q3 weapon immediately, resupply ammo, acquire a reward, or equip an IW weapon";
 
 #[derive(Debug, PartialEq)]
 enum GiveTarget<'a> {
     Ammo,
     Killstreak(&'a str),
+    Q3(sim::Quake3Weapon),
     Weapon(&'a str),
 }
 
@@ -317,6 +329,11 @@ fn parse_give_target(args: &[String]) -> Result<GiveTarget<'_>, &'static str> {
     let Some(item) = args.first() else {
         return Err(GIVE_USAGE);
     };
+    if args.len() == 1
+        && let Some(weapon) = q3_weapon_from_give_name(item)
+    {
+        return Ok(GiveTarget::Q3(weapon));
+    }
     if item == "ammo" && args.len() == 1 {
         return Ok(GiveTarget::Ammo);
     }
@@ -331,6 +348,91 @@ fn parse_give_target(args: &[String]) -> Result<GiveTarget<'_>, &'static str> {
         return Ok(GiveTarget::Weapon(name));
     }
     Err(GIVE_USAGE)
+}
+
+const Q3_GIVE_NAMES: &[&str] = &[
+    "gauntlet",
+    "machinegun",
+    "shotgun",
+    "grenade",
+    "rocket",
+    "lightning",
+    "railgun",
+    "plasma",
+    "bfg",
+];
+
+fn q3_weapon_from_give_name(raw: &str) -> Option<sim::Quake3Weapon> {
+    let raw = raw
+        .strip_prefix("q3/")
+        .or_else(|| raw.strip_prefix("q3:"))
+        .unwrap_or(raw)
+        .to_ascii_lowercase();
+    match raw.as_str() {
+        "gauntlet" | "melee" => Some(sim::Quake3Weapon::Gauntlet),
+        "machinegun" | "mg" => Some(sim::Quake3Weapon::Machinegun),
+        "shotgun" | "sg" => Some(sim::Quake3Weapon::Shotgun),
+        "grenade" | "gl" | "grenadelauncher" => Some(sim::Quake3Weapon::GrenadeLauncher),
+        "rocket" | "rl" | "rocketlauncher" => Some(sim::Quake3Weapon::RocketLauncher),
+        "lightning" | "lg" | "lightninggun" => Some(sim::Quake3Weapon::LightningGun),
+        "railgun" | "rail" | "rg" => Some(sim::Quake3Weapon::Railgun),
+        "plasma" | "pg" | "plasmagun" => Some(sim::Quake3Weapon::PlasmaGun),
+        "bfg" => Some(sim::Quake3Weapon::Bfg),
+        _ => None,
+    }
+}
+
+fn give_and_equip_q3(
+    weapon: sim::Quake3Weapon,
+    presented: &PresentedSnapshot,
+    local: &LocalPresentClient,
+    inbox: &mut ClientActionInbox,
+    seq: &mut net::ActionRequestIds,
+    mut echo: impl FnMut(String),
+) {
+    if !alive(presented, local.0) {
+        echo("give: spawn a class first".into());
+        return;
+    }
+
+    let id = weapon as u8;
+    let Some(give_amount) = sim::q3_debug_give_amount(id) else {
+        echo("give: invalid Q3 weapon".into());
+        return;
+    };
+    let Some(select_amount) = sim::q3_debug_select_amount(id) else {
+        echo("give: invalid Q3 weapon".into());
+        return;
+    };
+
+    let give_request_id = seq.allocate();
+    if let Err(error) = inbox.push(
+        local.0,
+        ClientAction::DebugDamage {
+            request_id: give_request_id,
+            amount: give_amount,
+        },
+    ) {
+        echo(format!("give: {error}"));
+        return;
+    }
+
+    let select_request_id = seq.allocate();
+    if let Err(error) = inbox.push(
+        local.0,
+        ClientAction::DebugDamage {
+            request_id: select_request_id,
+            amount: select_amount,
+        },
+    ) {
+        echo(format!("give: Q3 grant queued but equip failed: {error}"));
+        return;
+    }
+
+    echo(format!(
+        "give: equipped Q3 {} (weapon={id}, request_id={select_request_id})",
+        weapon.name()
+    ));
 }
 
 fn grant_killstreak(
@@ -429,6 +531,7 @@ struct GiveCompleter(WeaponArgCompletions);
 impl ArgCompleter for GiveCompleter {
     fn complete(&self, prefix: &str) -> Vec<String> {
         let mut items = vec!["ammo".to_owned()];
+        items.extend(Q3_GIVE_NAMES.iter().map(|name| (*name).to_owned()));
         if let Ok(weapons) = self.0.give.read() {
             items.extend(weapons.iter().map(|name| format!("weapon/{name}")));
         }
