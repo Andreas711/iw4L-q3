@@ -131,6 +131,50 @@ pub(crate) fn route_debug_feature_commands(
                     }
                 }
             },
+            "q3give" => {
+                let ids: Vec<u8> = match cmd.args.first().map(String::as_str) {
+                    Some("all") => (1u8..=9).collect(),
+                    Some("gauntlet" | "melee") => vec![1],
+                    Some("machinegun" | "mg") => vec![2],
+                    Some("shotgun" | "sg") => vec![3],
+                    Some("grenade" | "gl" | "grenadelauncher") => vec![4],
+                    Some("rocket" | "rl" | "rocketlauncher") => vec![5],
+                    Some("lightning" | "lg") => vec![6],
+                    Some("railgun" | "rail" | "rg") => vec![7],
+                    Some("plasma" | "pg" | "plasmagun") => vec![8],
+                    Some("bfg") => vec![9],
+                    _ => {
+                        echo(
+                            "usage: q3give gauntlet|machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg|all".into(),
+                            console,
+                            line,
+                        );
+                        continue;
+                    }
+                };
+                let Some(inbox) = inbox.as_mut() else {
+                    echo("q3give: no action inbox".into(), console, line);
+                    continue;
+                };
+                let Some(local) = local.as_ref() else {
+                    echo("q3give: no local player".into(), console, line);
+                    continue;
+                };
+                let mut queued = 0usize;
+                for weapon in ids {
+                    let Some(amount) = sim::q3_debug_give_amount(weapon) else {
+                        continue;
+                    };
+                    let request_id = give_seq.allocate();
+                    if inbox
+                        .push(local.0, ClientAction::DebugDamage { request_id, amount })
+                        .is_ok()
+                    {
+                        queued += 1;
+                    }
+                }
+                echo(format!("q3give: queued {queued} weapon grant(s)"), console, line);
+            }
             "q3use" => {
                 let weapon = match cmd.args.first().map(String::as_str) {
                     Some("off" | "none" | "iw4") => 0,
@@ -381,6 +425,10 @@ pub fn register_feature_commands(registry: &mut crate::ConsoleRegistry, maps: &[
         (
             "menu",
             "menu [open <screen> | nav up|down | accept | back | dump] — shell surface; back/device remain typed gaps (S2/S4)",
+        ),
+        (
+            "q3give",
+            "q3give <weapon|all> — grant Q3 ownership plus the original weapon-pickup ammo quantity",
         ),
         (
             "q3use",
