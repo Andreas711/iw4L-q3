@@ -72,3 +72,36 @@ a solid world hit terminates the beam.
 Q3 weapon ownership, selected weapon, ammo and next-fire deadline are included in authoritative
 client snapshot metadata, so prediction/replay snapshot adoption no longer silently loses the Q3
 weapon runtime.
+
+
+## Native Quake III first-person models
+
+The Q3 runtime can now load the original weapon MD3s directly from a user-owned Quake III
+`baseq3/pak0.pk3`. No Q3 game assets are committed to this repository.
+
+Set either:
+
+```
+IW4L_Q3_BASEQ3=C:/Games/Quake III Arena/baseq3
+```
+
+or point the variable directly at `pak0.pk3`. If `IW4L_Q3_BASEQ3` is omitted, the loader also
+checks a few conventional Q3 directory names below `IW4L_GAMES`.
+
+At startup the asset lane reads the nine base weapon models and the normal Q3 companion
+`_hand.md3`, `_barrel.md3` and `_flash.md3` models when present. The first-person presentation
+uses the hand model's `tag_weapon` transform and replaces the normal IW4 FPV geometry with the
+selected Q3 MD3 while keeping IW4L's existing viewmodel placement/render pipeline.
+
+Use:
+
+```
+q3assets
+```
+
+to verify the PK3 was found and see how many Q3 weapon models were loaded.
+
+The first visual milestone deliberately reuses the currently prepared IW4 material technique while
+feeding it Q3 geometry. This gets the real Q3 weapon shape into the first-person render path without
+redistributing id's game data. Q3 shader/texture resolution and native Q3 weapon sounds are the next
+presentation layer; gameplay remains supplied by `weapon_q3`.
