@@ -89,9 +89,10 @@ pub struct ProjectileState {
     pub id: ProjectileId,
     pub owner: ClientId,
     pub owner_life: LifeSequence,
+    /// IW4 weapon identity. Q3 projectiles keep this at zero so they cannot
+    /// accidentally inherit an IW4 weapon definition or presentation model.
     pub weapon: u32,
-    /// Quake III gameplay identity when this projectile is using Q3 rules.
-    /// `weapon` remains an IW4 presentation carrier until native Q3 assets land.
+    /// Native Quake III projectile identity.
     pub q3_weapon: Option<weapon_q3::Quake3Weapon>,
     pub origin: [f32; 3],
     pub velocity: [f32; 3],
