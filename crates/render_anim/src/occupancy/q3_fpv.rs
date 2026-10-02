@@ -35,84 +35,16 @@ fn pack_uv(uv: [f32; 2]) -> u32 {
     (u32::from(f32_to_half(uv[0])) << 16) | u32::from(f32_to_half(uv[1]))
 }
 
-fn pack_unit_vec(v: [f32; 3]) -> u32 {
-    let encode = |value: f32| -> u32 {
-        (((value.clamp(-1.0, 1.0) * 0.5 + 0.5) * 1023.0).round() as u32).min(1023)
-    };
-    encode(v[0]) | (encode(v[1]) << 10) | (encode(v[2]) << 20) | (3 << 30)
-}
-
-fn normalise(v: [f32; 3]) -> [f32; 3] {
-    let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-    if len > f32::EPSILON {
-        v.map(|x| x / len)
-    } else {
-        [0.0, 0.0, 1.0]
-    }
-}
-
-fn tag_weapon(model: &asset_q3::Q3WeaponModel) -> Option<&asset_q3::Md3Tag> {
-    model
-        .hand
-        .as_ref()?
-        .tags
-        .first()?
-        .iter()
-        .find(|tag| tag.name.eq_ignore_ascii_case("tag_weapon"))
-}
-
-fn transform_point(tag: Option<&asset_q3::Md3Tag>, p: [f32; 3]) -> [f32; 3] {
-    let Some(tag) = tag else {
-        return p;
-    };
-    [
-        tag.origin[0]
-            + p[0] * tag.axis[0][0]
-            + p[1] * tag.axis[1][0]
-            + p[2] * tag.axis[2][0],
-        tag.origin[1]
-            + p[0] * tag.axis[0][1]
-            + p[1] * tag.axis[1][1]
-            + p[2] * tag.axis[2][1],
-        tag.origin[2]
-            + p[0] * tag.axis[0][2]
-            + p[1] * tag.axis[1][2]
-            + p[2] * tag.axis[2][2],
-    ]
-}
-
-fn transform_vector(tag: Option<&asset_q3::Md3Tag>, p: [f32; 3]) -> [f32; 3] {
-    let Some(tag) = tag else {
-        return normalise(p);
-    };
-    normalise([
-        p[0] * tag.axis[0][0] + p[1] * tag.axis[1][0] + p[2] * tag.axis[2][0],
-        p[0] * tag.axis[0][1] + p[1] * tag.axis[1][1] + p[2] * tag.axis[2][1],
-        p[0] * tag.axis[0][2] + p[1] * tag.axis[1][2] + p[2] * tag.axis[2][2],
-    ])
-}
-
-fn packed_vertex(position: [f32; 3], normal: [f32; 3], uv: [f32; 2]) -> [u8; 32] {
-    let mut row = [0u8; 32];
+fn packed_vertex(
+    mut row: [u8; asset_iw4::size::GFX_PACKED_VERTEX],
+    position: [f32; 3],
+    uv: [f32; 2],
+) -> [u8; asset_iw4::size::GFX_PACKED_VERTEX] {
     row[0..4].copy_from_slice(&position[0].to_le_bytes());
     row[4..8].copy_from_slice(&position[1].to_le_bytes());
     row[8..12].copy_from_slice(&position[2].to_le_bytes());
-    row[12..16].copy_from_slice(&1.0f32.to_le_bytes());
     row[16..20].copy_from_slice(&0xffff_ffffu32.to_le_bytes());
     row[20..24].copy_from_slice(&pack_uv(uv).to_le_bytes());
-    row[24..28].copy_from_slice(&pack_unit_vec(normal).to_le_bytes());
-
-    let tangent_seed = if normal[2].abs() < 0.9 {
-        [0.0, 0.0, 1.0]
-    } else {
-        [0.0, 1.0, 0.0]
-    };
-    let tangent = normalise([
-        tangent_seed[1] * normal[2] - tangent_seed[2] * normal[1],
-        tangent_seed[2] * normal[0] - tangent_seed[0] * normal[2],
-        tangent_seed[0] * normal[1] - tangent_seed[1] * normal[0],
-    ]);
-    row[28..32].copy_from_slice(&pack_unit_vec(tangent).to_le_bytes());
     row
 }
 
@@ -142,6 +74,14 @@ pub(crate) fn override_q3_fpv(
         return;
     };
 
+    let packed_template = match &plan.packed_vertices {
+        asset_world::PackedVertexPayload::Iw4(rows) => rows.first().copied(),
+        asset_world::PackedVertexPayload::Unavailable { .. } => None,
+    };
+    let Some(packed_template) = packed_template else {
+        return;
+    };
+
     let tag = tag_weapon(entry);
     let mut packed = Vec::new();
     let mut indices = Vec::new();
@@ -159,8 +99,7 @@ pub(crate) fn override_q3_fpv(
         let vertex_base = packed.len() as u32;
         for (vertex, uv) in vertices.iter().zip(&surface.texcoords) {
             let position = transform_point(tag, vertex.position);
-            let normal = transform_vector(tag, vertex.normal);
-            packed.push(packed_vertex(position, normal, *uv));
+            packed.push(packed_vertex(packed_template, position, *uv));
         }
 
         let start = indices.len() as u32;
@@ -233,7 +172,7 @@ mod tests {
 
     #[test]
     fn packed_vertex_uses_iw4_stride() {
-        let row = packed_vertex([1.0, 2.0, 3.0], [0.0, 0.0, 1.0], [0.5, 0.5]);
+        let row = packed_vertex([0u8; asset_iw4::size::GFX_PACKED_VERTEX], [1.0, 2.0, 3.0], [0.5, 0.5]);
         assert_eq!(row.len(), asset_iw4::size::GFX_PACKED_VERTEX);
     }
 }
