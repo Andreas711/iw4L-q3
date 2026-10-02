@@ -512,6 +512,12 @@ impl SimContentBuilder {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Q3WeaponRuntime {
+    pub weapon: weapon_q3::Quake3Weapon,
+    pub next_fire_time_ms: i32,
+}
+
 #[derive(Component, Clone, Debug)]
 pub struct SimState {
     content: Arc<SimContent>,
@@ -530,6 +536,8 @@ pub struct SimState {
     old_buttons: Vec<(ClientId, u32)>,
 
     old_cmd_angles: Vec<(ClientId, [i32; 3])>,
+
+    q3_weapons: HashMap<ClientId, Q3WeaponRuntime>,
 
     player_anim_trees: HashMap<u32, PlayerAnimTreeSlot>,
 
@@ -661,6 +669,7 @@ impl Default for SimState {
             model_library: Arc::default(),
             old_buttons: Vec::new(),
             old_cmd_angles: Vec::new(),
+            q3_weapons: HashMap::new(),
             player_anim_trees: HashMap::new(),
             corpse_anim_trees: HashMap::new(),
             player_dobjs: HashMap::new(),
@@ -1526,6 +1535,7 @@ impl SimState {
         self.player_dobjs.remove(&id.0);
         self.lagcomp_sample.remove(&id);
         self.lagcomp_commands.retain(|(client, _), _| *client != id);
+        self.q3_weapons.remove(&id);
         self.last_pmove_walking.remove(&id);
         self.last_anim_movement.remove(&id);
         self.anim_command_buttons.remove(&id);
@@ -3006,6 +3016,37 @@ impl SimState {
 
     pub(crate) fn item_pickups_mut(&mut self) -> &mut Vec<crate::ItemPickupRecord> {
         &mut self.item_pickups
+    }
+
+    pub(crate) fn q3_weapon_runtime(&self, id: ClientId) -> Option<Q3WeaponRuntime> {
+        self.q3_weapons.get(&id).copied()
+    }
+
+    pub(crate) fn select_q3_weapon(
+        &mut self,
+        id: ClientId,
+        weapon: Option<weapon_q3::Quake3Weapon>,
+    ) {
+        match weapon {
+            Some(weapon) => {
+                self.q3_weapons.insert(
+                    id,
+                    Q3WeaponRuntime {
+                        weapon,
+                        next_fire_time_ms: 0,
+                    },
+                );
+            }
+            None => {
+                self.q3_weapons.remove(&id);
+            }
+        }
+    }
+
+    pub(crate) fn q3_commit_fire(&mut self, id: ClientId, now_ms: i32) {
+        if let Some(state) = self.q3_weapons.get_mut(&id) {
+            state.next_fire_time_ms = now_ms.saturating_add(state.weapon.refire_ms().max(0));
+        }
     }
 
     pub(crate) fn client_meta_mut(&mut self, id: ClientId) -> &mut ClientMatchState {
