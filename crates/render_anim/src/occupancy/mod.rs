@@ -6,6 +6,7 @@ pub mod item;
 pub mod killcam;
 pub mod match_reset;
 pub mod missile;
+pub mod q3_fpv;
 pub mod remote_body;
 pub mod script_model;
 pub mod third_person;
