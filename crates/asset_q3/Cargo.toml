@@ -8,6 +8,7 @@ description = "Quake III PK3 and MD3 asset loading for IW4L"
 [dependencies]
 weapon_q3.workspace = true
 zip.workspace = true
+image.workspace = true
 
 [lints]
 workspace = true
