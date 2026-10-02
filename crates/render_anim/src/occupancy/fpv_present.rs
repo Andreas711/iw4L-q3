@@ -763,6 +763,7 @@ fn skin_fpv_geometry(
     >,
 ) {
     fpv_plan.drawgun = product.drawgun;
+    let handle = fpv_plan.lighting_handle;
 
     let q3_active = presented
         .as_ref()
@@ -771,17 +772,14 @@ fn skin_fpv_geometry(
         .and_then(|(snapshot, local)| snapshot.meta.for_client(local.0))
         .and_then(|meta| meta.q3_weapon)
         .is_some_and(|runtime| runtime.active);
-    fpv_plan.force_scene_admission = q3_active;
+    fpv_plan.force_scene_admission = false;
     if q3_active {
-        // Q3 owns the FPV geometry while active. Do not let the normal IW4
-        // skin pass write an IW4 rig into the Q3-sized vertex bank. Reset the
-        // generation so the IW4 composition is reinstalled immediately when
-        // q3use off is selected.
+        // Native Q3 presentation lives in render_q3. Keep the MW2 FPV lane
+        // empty while Q3 is active instead of mutating its geometry/materials.
+        crate::clear_fpv_draw_plan(&mut fpv_plan, handle);
         fpv_plan.rig_generation = 0;
         return;
     }
-
-    let handle = fpv_plan.lighting_handle;
     match &product.kind {
         FpvPoseKind::Hide => crate::clear_fpv_draw_plan(&mut fpv_plan, handle),
         FpvPoseKind::Refuse(refuse) => {
@@ -1169,8 +1167,6 @@ pub fn register_fpv_present_systems(app: &mut App) {
         .init_resource::<GunOffset>()
         .init_resource::<ViewweaponAim>()
         .init_resource::<PendingViewHurt>()
-        .init_resource::<crate::occupancy::q3_fpv::Q3FpvMotion>()
-        .init_resource::<crate::occupancy::q3_fpv::Q3FpvTextureSwap>()
         .init_resource::<FpvStatusGap>()
         .init_resource::<RenderPresentationGaps>()
         .add_systems(
@@ -1197,9 +1193,6 @@ pub fn register_fpv_present_systems(app: &mut App) {
                 skin_fpv_geometry
                     .after(tick_fpv_viewmodel)
                     .in_set(FpvGeometrySet),
-                crate::occupancy::q3_fpv::override_q3_fpv
-                    .after(skin_fpv_geometry)
-                    .in_set(FpvGeometrySet),
                 publish_fpv_notetracks.after(tick_fpv_viewmodel),
                 apply_fpv_placement
                     .after(tick_fpv_viewmodel)
@@ -1207,9 +1200,6 @@ pub fn register_fpv_present_systems(app: &mut App) {
                 // Neither placement nor bone publication reads a vertex.
                 stamp_fpv_placement_matrix
                     .after(apply_fpv_placement)
-                    .in_set(FpvPlacementSet),
-                crate::occupancy::q3_fpv::override_q3_fpv_placement
-                    .after(stamp_fpv_placement_matrix)
                     .in_set(FpvPlacementSet),
                 publish_fpv_dobj_pose
                     .after(stamp_fpv_placement_matrix)
