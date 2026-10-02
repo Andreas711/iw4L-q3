@@ -8,6 +8,11 @@ pub struct ClassId(pub u32);
 
 pub type ActionRequestId = u32;
 
+/// Debug-action sentinel used by the first live Quake III Railgun integration.
+/// Negative DebugDamage values were previously refused, so this does not overlap
+/// with the normal `damage` debug action.
+pub const DEBUG_DAMAGE_Q3_RAILGUN: i32 = i32::MIN + 0x5133;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ClientAction {
     JoinMatch {
