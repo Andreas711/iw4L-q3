@@ -237,6 +237,24 @@ pub(crate) fn route_debug_feature_commands(
                     echo("q3use: no local player".into(), console, line);
                     continue;
                 };
+                if weapon != 0 {
+                    let Some(give_amount) = sim::q3_debug_give_amount(weapon) else {
+                        echo("q3use: invalid weapon id".into(), console, line);
+                        continue;
+                    };
+                    let give_request_id = give_seq.allocate();
+                    if let Err(error) = inbox.push(
+                        local.0,
+                        ClientAction::DebugDamage {
+                            request_id: give_request_id,
+                            amount: give_amount,
+                        },
+                    ) {
+                        echo(format!("q3use: {error}"), console, line);
+                        continue;
+                    }
+                }
+
                 let Some(amount) = sim::q3_debug_select_amount(weapon) else {
                     echo("q3use: invalid weapon id".into(), console, line);
                     continue;
@@ -253,7 +271,7 @@ pub(crate) fn route_debug_feature_commands(
                     if weapon == 0 {
                         "q3use: queued return to IW4 weapon handling".into()
                     } else {
-                        format!("q3use: queued Q3 weapon={weapon}; left click now fires it")
+                        format!("q3use: equipped Q3 weapon={weapon}; ammo topped up and left click fires it")
                     },
                     console,
                     line,
