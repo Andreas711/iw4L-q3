@@ -154,6 +154,7 @@ pub(crate) fn apply_q3_explosion_blast(
     world: &mut FrameWorld,
     tick: Tick,
     blast: &ExplosionBlast,
+    ignore_target: Option<ClientId>,
 ) {
     if !world.publishes_snapshot() {
         return;
@@ -162,7 +163,10 @@ pub(crate) fn apply_q3_explosion_blast(
     let attempts = radius_player_attempts(world, blast);
     let glass = radius_glass_hits(world, blast);
 
-    for attempt in attempts {
+    for attempt in attempts
+        .into_iter()
+        .filter(|attempt| Some(attempt.target) != ignore_target)
+    {
         let raw_damage = attempt.amount;
         apply_q3_knockback(
             world,
