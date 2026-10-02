@@ -150,6 +150,124 @@ pub(crate) fn apply_explosion_blast(world: &mut FrameWorld, tick: Tick, blast: &
     );
 }
 
+pub(crate) fn apply_q3_explosion_blast(
+    world: &mut FrameWorld,
+    tick: Tick,
+    blast: &ExplosionBlast,
+) {
+    if !world.publishes_snapshot() {
+        return;
+    }
+
+    let attempts = radius_player_attempts(world, blast);
+    let glass = radius_glass_hits(world, blast);
+
+    for attempt in attempts {
+        let raw_damage = attempt.amount;
+        apply_q3_knockback(
+            world,
+            attempt.target,
+            blast.origin,
+            raw_damage,
+            true,
+        );
+
+        let mut attempt = attempt;
+        if attempt.target == attempt.attacker {
+            attempt.amount = weapon_q3::self_damage(attempt.amount);
+        }
+        let _ = apply_damage_attempt(world, tick, &attempt);
+    }
+
+    apply_glass_blast_hits(world, tick, glass);
+    apply_entity_blast(world, blast);
+    crate::t5_destructible::apply_radius(
+        world,
+        tick,
+        &crate::t5_destructible::RadiusDamage {
+            origin: blast.origin,
+            radius: blast.radius,
+            inner: blast.inner_damage,
+            outer: blast.outer_damage,
+            attacker: Some(blast.attacker),
+            exclude: None,
+            cone: blast.cone,
+        },
+    );
+
+    let means = crate::script_player::means(world, blast.source, blast.weapon, 0, true);
+    let ignore_model = world
+        .ecs()
+        .get_resource::<crate::script::Runtime>()
+        .and_then(|runtime| match blast.source {
+            DamageSource::Projectile(id) => runtime
+                .missiles
+                .get(&id)
+                .and_then(|object| runtime.entities.get(object))
+                .and_then(|entity| entity.presence),
+            DamageSource::Radius(id) => Some(id),
+            _ => None,
+        });
+    crate::script::host::triggers::damage_blast(
+        world.ecs(),
+        &crate::script::host::triggers::TriggerBlast {
+            origin: blast.origin,
+            radius: blast.radius,
+            max: blast.inner_damage,
+            min: blast.outer_damage,
+            client: Some(blast.attacker),
+            missile: match blast.source {
+                DamageSource::Projectile(id) => Some(id),
+                _ => None,
+            },
+            means,
+            ignore_model,
+            cone: blast.cone,
+        },
+    );
+}
+
+pub(crate) fn apply_q3_direct_knockback(
+    world: &mut FrameWorld,
+    target: ClientId,
+    direction: [f32; 3],
+    damage: i32,
+) {
+    let delta = weapon_q3::knockback_velocity_delta(direction, damage);
+    if delta == [0.0; 3] {
+        return;
+    }
+    if let Some(ps) = world.player_mut(target) {
+        for i in 0..3 {
+            ps.velocity[i] += delta[i];
+        }
+        if ps.pm_time <= 0 {
+            ps.pm_time = (damage.clamp(25, 100) * 2).clamp(50, 200);
+        }
+    }
+}
+
+fn apply_q3_knockback(
+    world: &mut FrameWorld,
+    target: ClientId,
+    origin: [f32; 3],
+    damage: i32,
+    raise_center: bool,
+) {
+    let Some(ps) = world.player(target).copied() else {
+        return;
+    };
+    let mut direction = [
+        ps.origin[0] - origin[0],
+        ps.origin[1] - origin[1],
+        ps.origin[2] - origin[2],
+    ];
+    if raise_center {
+        direction[2] += 24.0;
+    }
+    apply_q3_direct_knockback(world, target, direction, damage);
+}
+
 fn apply_entity_blast(world: &mut FrameWorld, blast: &ExplosionBlast) {
     if blast.radius <= 0.0 {
         return;
