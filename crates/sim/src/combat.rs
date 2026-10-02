@@ -1,7 +1,8 @@
 use crate::bullet::bullet_damage_at_distance;
 use crate::bullet_collision::{
     BulletTraceQuery, ColliderId, EntityCollisionEpoch, EntityCollisionTraceGeom,
-    HistorySampleVerdict, MASK_BULLET_WORLD, bullet_trace_segments_filtered, glass_piece_from_hit,
+    HistorySampleVerdict, MASK_BULLET_WORLD, bullet_trace_segments_filtered,
+    bullet_trace_with_entity_models, glass_piece_from_hit,
 };
 use crate::frame::FrameWorld;
 use crate::identities::{DamageSource, LifeSequence, MatchRng, PelletId, ShotId};
@@ -1083,6 +1084,9 @@ pub(crate) fn fire_q3_weapon_debug(
     if q3_weapon == weapon_q3::Quake3Weapon::Gauntlet {
         return fire_q3_gauntlet_debug(world, tick, id);
     }
+    if q3_weapon == weapon_q3::Quake3Weapon::Railgun {
+        return fire_q3_railgun_piercing(world, tick, id);
+    }
 
     let spec = match q3_weapon {
         weapon_q3::Quake3Weapon::Machinegun => weapon_q3::machinegun::MACHINEGUN,
@@ -1200,6 +1204,130 @@ pub(crate) fn fire_q3_weapon_debug(
     }
 
     let _ = phase_trace(world, tick, &emissions);
+    true
+}
+
+fn fire_q3_railgun_piercing(world: &mut FrameWorld, tick: Tick, id: ClientId) -> bool {
+    let Some(ps) = world.player(id).copied() else {
+        return false;
+    };
+    let carrier = ps
+        .weapons
+        .iter()
+        .copied()
+        .filter(|&weapon| weapon > 0)
+        .map(|weapon| weapon as u32)
+        .find(|&weapon| world.combat_facts_for(weapon).is_some())
+        .or_else(|| {
+            (1..world.weapon_combat_len() as u32)
+                .find(|&weapon| world.combat_facts_for(weapon).is_some())
+        });
+    let Some(carrier) = carrier else {
+        return false;
+    };
+
+    let life = world
+        .client_meta(id)
+        .map(|m| m.life_sequence)
+        .unwrap_or_default();
+    let shot_id = world.alloc_shot_id();
+    let (forward, _, _) = math_iw4::angle_vectors(ps.viewangles);
+    let eye = [
+        ps.origin[0],
+        ps.origin[1],
+        ps.origin[2] + ps.view_height_current,
+    ];
+    let origin = core::array::from_fn(|i| eye[i] + forward[i] * 14.0);
+    let end = core::array::from_fn(|i| {
+        origin[i] + forward[i] * weapon_q3::railgun::RAILGUN_RANGE
+    });
+    let lag = world.lagcomp_query_for(id, tick);
+    let mut start = origin;
+    let mut ignore_hit = None;
+
+    world.push_entity_event(
+        tick,
+        EventAudience::All,
+        entity_iw4::predicted_weapon_fire_event(0, false),
+        crate::EntityEventPayload {
+            number: id.0 as i32,
+            weapon: carrier,
+            correlation: shot_id.0,
+            origin,
+            direction: ps.viewangles,
+            ..Default::default()
+        },
+    );
+
+    for pellet in 0..4u16 {
+        let trace = bullet_trace_with_entity_models(
+            world.clip_brushes(),
+            world.clip_bsp(),
+            world.clip_cmodels(),
+            world.clip_mesh(),
+            &lag.players.poses,
+            &lag.entities.rows,
+            &BulletTraceQuery {
+                start,
+                end,
+                mask: MASK_BULLET_WORLD,
+                ignore: Some(id),
+                ignore_hit,
+                ignore_model: None,
+            },
+            &|piece| world.world_objects().glass_is_solid(u32::from(piece)),
+        );
+
+        let crate::TraceOutcome::Hit {
+            end: hit_end,
+            collider,
+            ..
+        } = trace
+        else {
+            break;
+        };
+
+        let ColliderId::Player {
+            client: victim,
+            life: victim_life,
+            ..
+        } = collider
+        else {
+            break;
+        };
+
+        if world.publishes_snapshot()
+            && world
+                .client_meta(victim)
+                .is_some_and(|m| m.lifecycle == ClientLifecycle::Alive)
+        {
+            crate::damage::apply_q3_direct_knockback(
+                world,
+                victim,
+                forward,
+                weapon_q3::railgun::RAILGUN_DAMAGE,
+            );
+            let attempt = crate::DamageAttempt {
+                splash: false,
+                source: DamageSource::Shot(shot_id),
+                pellet: PelletId(pellet),
+                attacker: id,
+                attacker_life: life,
+                target: victim,
+                target_life: victim_life,
+                weapon: carrier,
+                amount: weapon_q3::railgun::RAILGUN_DAMAGE,
+                killcam_entity_start_time: 0,
+                inflictor_origin: None,
+                hitloc: 0,
+            };
+            let _ = crate::damage::apply_damage_attempt(world, tick, &attempt);
+        }
+
+        ignore_hit = Some(victim);
+        start = core::array::from_fn(|i| hit_end[i] + forward[i] * 0.25);
+    }
+
     true
 }
 
