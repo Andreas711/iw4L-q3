@@ -62,6 +62,14 @@ pub const fn weapon_asset_spec(weapon: Quake3Weapon) -> WeaponAssetSpec {
 }
 
 #[derive(Clone, Debug)]
+pub struct Q3Texture {
+    pub path: String,
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
 pub struct Q3WeaponModel {
     pub weapon: Quake3Weapon,
     pub path: String,
@@ -69,6 +77,9 @@ pub struct Q3WeaponModel {
     pub hand: Option<Md3Model>,
     pub barrel: Option<Md3Model>,
     pub flash: Option<Md3Model>,
+    /// One decoded colour texture per weapon-model surface when the MD3 shader
+    /// resolves directly to an image in pak0.pk3.
+    pub surface_textures: Vec<Option<Q3Texture>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -113,6 +124,52 @@ impl From<Pk3Error> for WeaponAssetError {
     }
 }
 
+fn image_format(path: &str) -> Option<image::ImageFormat> {
+    let extension = Path::new(path)
+        .extension()
+        .and_then(|value| value.to_str())?
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "tga" => Some(image::ImageFormat::Tga),
+        "jpg" | "jpeg" => Some(image::ImageFormat::Jpeg),
+        "png" => Some(image::ImageFormat::Png),
+        _ => None,
+    }
+}
+
+fn read_q3_texture(pk3: &mut Pk3Archive, shader: &str) -> Option<Q3Texture> {
+    let normalised = shader.replace('\\', "/");
+    let has_extension = Path::new(&normalised).extension().is_some();
+    let mut candidates = Vec::with_capacity(4);
+    if has_extension {
+        candidates.push(normalised.clone());
+    } else {
+        candidates.push(format!("{normalised}.tga"));
+        candidates.push(format!("{normalised}.jpg"));
+        candidates.push(format!("{normalised}.jpeg"));
+        candidates.push(format!("{normalised}.png"));
+    }
+
+    for path in candidates {
+        let format = image_format(&path)?;
+        let bytes = match pk3.read(&path) {
+            Ok(bytes) => bytes,
+            Err(Pk3Error::Missing(_)) => continue,
+            Err(_) => return None,
+        };
+        let decoded = image::load_from_memory_with_format(&bytes, format).ok()?;
+        let rgba = decoded.to_rgba8();
+        let (width, height) = rgba.dimensions();
+        return Some(Q3Texture {
+            path,
+            width,
+            height,
+            rgba: rgba.into_raw(),
+        });
+    }
+    None
+}
+
 fn pak0_path(baseq3: &Path) -> Result<PathBuf, WeaponAssetError> {
     if baseq3.is_file() {
         return Ok(baseq3.to_path_buf());
@@ -155,6 +212,16 @@ pub fn load_weapon_models(baseq3: impl AsRef<Path>) -> Result<Q3WeaponAssetSet, 
                 }
                 let barrel = read_companion(&mut pk3, "barrel");
                 let flash = read_companion(&mut pk3, "flash");
+                let surface_textures = model
+                    .surfaces
+                    .iter()
+                    .map(|surface| {
+                        surface
+                            .shaders
+                            .first()
+                            .and_then(|shader| read_q3_texture(&mut pk3, shader))
+                    })
+                    .collect();
                 set.models.push(Q3WeaponModel {
                     weapon,
                     path: spec.model.to_owned(),
@@ -162,6 +229,7 @@ pub fn load_weapon_models(baseq3: impl AsRef<Path>) -> Result<Q3WeaponAssetSet, 
                     hand,
                     barrel,
                     flash,
+                    surface_textures,
                 });
             }
             Err(Pk3Error::Missing(_)) => set.missing.push(spec.model.to_owned()),
