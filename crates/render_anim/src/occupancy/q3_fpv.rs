@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use net::{LocalPresentClient, PresentedSnapshot};
+use net::{FrameClock, LocalPresentClient, PresentedSnapshot};
+use render_scene::FlyCamera;
 
 use crate::draw::{FpvDrawPlan, FpvSurfaceDraw};
 
@@ -46,6 +47,134 @@ fn packed_vertex(
     row[16..20].copy_from_slice(&0xffff_ffffu32.to_le_bytes());
     row[20..24].copy_from_slice(&pack_uv(uv).to_le_bytes());
     row
+}
+
+fn tag_weapon(model: &asset_q3::Q3WeaponModel) -> Option<&asset_q3::Md3Tag> {
+    model
+        .hand
+        .as_ref()?
+        .tags
+        .first()?
+        .iter()
+        .find(|tag| tag.name.eq_ignore_ascii_case("tag_weapon"))
+}
+
+fn transform_point(tag: Option<&asset_q3::Md3Tag>, p: [f32; 3]) -> [f32; 3] {
+    let Some(tag) = tag else {
+        return p;
+    };
+    [
+        tag.origin[0]
+            + p[0] * tag.axis[0][0]
+            + p[1] * tag.axis[1][0]
+            + p[2] * tag.axis[2][0],
+        tag.origin[1]
+            + p[0] * tag.axis[0][1]
+            + p[1] * tag.axis[1][1]
+            + p[2] * tag.axis[2][1],
+        tag.origin[2]
+            + p[0] * tag.axis[0][2]
+            + p[1] * tag.axis[1][2]
+            + p[2] * tag.axis[2][2],
+    ]
+}
+
+#[derive(Resource, Clone, Copy, Debug)]
+pub(crate) struct Q3FpvMotion {
+    weapon: u8,
+    switch_started_ms: i32,
+    last_fire_deadline_ms: i32,
+    recoil: f32,
+}
+
+impl Default for Q3FpvMotion {
+    fn default() -> Self {
+        Self {
+            weapon: 0,
+            switch_started_ms: 0,
+            last_fire_deadline_ms: 0,
+            recoil: 0.0,
+        }
+    }
+}
+
+/// Quake III weapon models use X-forward, Y-left, Z-up coordinates.
+/// Bevy camera-local coordinates are X-right, Y-up, -Z-forward.
+fn q3_model_to_camera() -> Mat4 {
+    Mat4::from_cols(
+        Vec4::new(0.0, 0.0, -1.0, 0.0),
+        Vec4::new(-1.0, 0.0, 0.0, 0.0),
+        Vec4::new(0.0, 1.0, 0.0, 0.0),
+        Vec4::W,
+    )
+}
+
+pub(crate) fn override_q3_fpv_placement(
+    clock: Res<FrameClock>,
+    presented: Res<PresentedSnapshot>,
+    local: Res<LocalPresentClient>,
+    cameras: Query<&Transform, With<FlyCamera>>,
+    mut motion: ResMut<Q3FpvMotion>,
+    mut plan: ResMut<FpvDrawPlan>,
+) {
+    let Some(snapshot) = presented.snapshot() else {
+        return;
+    };
+    let Some(runtime) = snapshot.meta.for_client(local.0).and_then(|meta| meta.q3_weapon) else {
+        return;
+    };
+    if !runtime.active {
+        return;
+    }
+    let Ok(camera) = cameras.single() else {
+        return;
+    };
+
+    let now = clock.time();
+    let weapon = runtime.weapon as u8;
+    if motion.weapon != weapon {
+        motion.weapon = weapon;
+        motion.switch_started_ms = now;
+        motion.last_fire_deadline_ms = runtime.next_fire_time_ms;
+        motion.recoil = 0.0;
+    } else if runtime.next_fire_time_ms != motion.last_fire_deadline_ms {
+        if runtime.next_fire_time_ms > motion.last_fire_deadline_ms {
+            motion.recoil = 1.0;
+        }
+        motion.last_fire_deadline_ms = runtime.next_fire_time_ms;
+    }
+
+    let dt = clock.frametime_secs().clamp(0.0, 0.05);
+    motion.recoil = (motion.recoil - dt * 7.5).max(0.0);
+
+    let speed = presented
+        .player(local.0)
+        .map(|ps| (ps.velocity[0] * ps.velocity[0] + ps.velocity[1] * ps.velocity[1]).sqrt())
+        .unwrap_or(0.0);
+    let bob_scale = (speed / 320.0).clamp(0.0, 1.0);
+    let phase = now as f32 * 0.008;
+    let bob_right = phase.sin() * 0.55 * bob_scale;
+    let bob_up = (phase * 2.0).sin().abs() * 0.45 * bob_scale;
+
+    // Q3 changes weapon in two stages: 200 ms drop, then 250 ms raise.
+    // The selected snapshot already names the new weapon, so present the raise
+    // half here instead of drawing the previous model during the drop.
+    let raise_t = ((now - motion.switch_started_ms) as f32 / 250.0).clamp(0.0, 1.0);
+    let raise_down = (1.0 - raise_t) * 14.0;
+
+    let recoil_back = motion.recoil * 2.0;
+    let recoil_pitch = motion.recoil * 2.5_f32.to_radians();
+
+    let local = Mat4::from_translation(Vec3::new(
+        bob_right,
+        -raise_down + bob_up - 1.0,
+        recoil_back - 2.0,
+    )) * Mat4::from_rotation_x(recoil_pitch)
+        * q3_model_to_camera();
+
+    plan.world_from_local = camera.to_matrix() * local;
+    plan.placement_ok = true;
+    plan.settle_visible();
 }
 
 pub(crate) fn override_q3_fpv(
