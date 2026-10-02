@@ -1460,7 +1460,11 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
             killcam_entity_start_time: projectile_birth_ms(&info.projectile),
         };
         if info.projectile.q3_weapon.is_some() {
-            crate::damage::apply_q3_explosion_blast(world, tick, &blast);
+            let ignore_target = match info.terminal {
+                Some(ColliderId::Player { client, .. }) => Some(client),
+                _ => None,
+            };
+            crate::damage::apply_q3_explosion_blast(world, tick, &blast, ignore_target);
         } else {
             crate::damage::apply_explosion_blast(world, tick, &blast);
         }
