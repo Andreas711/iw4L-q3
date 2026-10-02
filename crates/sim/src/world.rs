@@ -516,6 +516,34 @@ impl SimContentBuilder {
 pub(crate) struct Q3WeaponRuntime {
     pub weapon: weapon_q3::Quake3Weapon,
     pub next_fire_time_ms: i32,
+    pub active: bool,
+    pub owned_mask: u16,
+    pub ammo: [i16; 10],
+}
+
+impl Q3WeaponRuntime {
+    fn spawn_default() -> Self {
+        let mut ammo = [0i16; 10];
+        ammo[weapon_q3::Quake3Weapon::Gauntlet as usize] = -1;
+        ammo[weapon_q3::Quake3Weapon::Machinegun as usize] = 100;
+        Self {
+            weapon: weapon_q3::Quake3Weapon::Machinegun,
+            next_fire_time_ms: 0,
+            active: false,
+            owned_mask: (1 << weapon_q3::Quake3Weapon::Gauntlet as u8)
+                | (1 << weapon_q3::Quake3Weapon::Machinegun as u8),
+            ammo,
+        }
+    }
+
+    fn owns(self, weapon: weapon_q3::Quake3Weapon) -> bool {
+        self.owned_mask & (1 << weapon as u8) != 0
+    }
+
+    fn can_fire(self, now_ms: i32) -> bool {
+        let ammo = self.ammo[self.weapon as usize];
+        now_ms >= self.next_fire_time_ms && (!self.weapon.uses_ammo() || ammo != 0)
+    }
 }
 
 #[derive(Component, Clone, Debug)]
@@ -3020,7 +3048,10 @@ impl SimState {
     }
 
     pub(crate) fn q3_weapon_runtime(&self, id: ClientId) -> Option<Q3WeaponRuntime> {
-        self.q3_weapons.get(&id).copied()
+        self.q3_weapons
+            .get(&id)
+            .copied()
+            .filter(|state| state.active)
     }
 
     pub(crate) fn select_q3_weapon(
@@ -3028,24 +3059,55 @@ impl SimState {
         id: ClientId,
         weapon: Option<weapon_q3::Quake3Weapon>,
     ) {
+        let state = self
+            .q3_weapons
+            .entry(id)
+            .or_insert_with(Q3WeaponRuntime::spawn_default);
         match weapon {
-            Some(weapon) => {
-                self.q3_weapons.insert(
-                    id,
-                    Q3WeaponRuntime {
-                        weapon,
-                        next_fire_time_ms: 0,
-                    },
-                );
+            Some(weapon) if state.owns(weapon) => {
+                state.weapon = weapon;
+                state.active = true;
+                state.next_fire_time_ms = 0;
             }
-            None => {
-                self.q3_weapons.remove(&id);
-            }
+            Some(_) => {}
+            None => state.active = false,
         }
+    }
+
+    pub(crate) fn q3_give_weapon(
+        &mut self,
+        id: ClientId,
+        weapon: weapon_q3::Quake3Weapon,
+    ) {
+        let state = self
+            .q3_weapons
+            .entry(id)
+            .or_insert_with(Q3WeaponRuntime::spawn_default);
+        state.owned_mask |= 1 << weapon as u8;
+        let slot = weapon as usize;
+        if weapon.uses_ammo() {
+            let add = weapon.weapon_pickup_ammo().max(0) as i16;
+            state.ammo[slot] = state.ammo[slot].saturating_add(add).min(200);
+        } else {
+            state.ammo[slot] = -1;
+        }
+    }
+
+    pub(crate) fn q3_can_fire(&self, id: ClientId, now_ms: i32) -> bool {
+        self.q3_weapons
+            .get(&id)
+            .copied()
+            .is_some_and(|state| state.active && state.can_fire(now_ms))
     }
 
     pub(crate) fn q3_commit_fire(&mut self, id: ClientId, now_ms: i32) {
         if let Some(state) = self.q3_weapons.get_mut(&id) {
+            if state.weapon.uses_ammo() {
+                let slot = state.weapon as usize;
+                if state.ammo[slot] > 0 {
+                    state.ammo[slot] -= 1;
+                }
+            }
             state.next_fire_time_ms = now_ms.saturating_add(state.weapon.refire_ms().max(0));
         }
     }
