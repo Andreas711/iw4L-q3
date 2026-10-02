@@ -89,7 +89,8 @@ pub use identities::{
     ProjectileId, RNG_DOMAIN_SCHEME, RngDomain, ScriptModelId, ShotId,
 };
 pub use input::{
-    ActionRequestId, ClassId, ClientAction, MENU_RESPONSE_BYTES, SpawnPick, TickInput,
+    ActionRequestId, ClassId, ClientAction, DEBUG_DAMAGE_Q3_RAILGUN, MENU_RESPONSE_BYTES, SpawnPick,
+    TickInput,
     action_request_id, menu_response_field, menu_response_text,
 };
 pub use mantle_xanim::MantleXAnimBind;
