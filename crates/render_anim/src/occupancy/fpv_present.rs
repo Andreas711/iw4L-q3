@@ -1149,6 +1149,7 @@ pub fn register_fpv_present_systems(app: &mut App) {
         .init_resource::<GunOffset>()
         .init_resource::<ViewweaponAim>()
         .init_resource::<PendingViewHurt>()
+        .init_resource::<crate::occupancy::q3_fpv::Q3FpvMotion>()
         .init_resource::<FpvStatusGap>()
         .init_resource::<RenderPresentationGaps>()
         .add_systems(
@@ -1185,6 +1186,9 @@ pub fn register_fpv_present_systems(app: &mut App) {
                 // Neither placement nor bone publication reads a vertex.
                 stamp_fpv_placement_matrix
                     .after(apply_fpv_placement)
+                    .in_set(FpvPlacementSet),
+                crate::occupancy::q3_fpv::override_q3_fpv_placement
+                    .after(stamp_fpv_placement_matrix)
                     .in_set(FpvPlacementSet),
                 publish_fpv_dobj_pose
                     .after(stamp_fpv_placement_matrix)
