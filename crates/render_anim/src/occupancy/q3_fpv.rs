@@ -33,19 +33,146 @@ fn f32_to_half(value: f32) -> u16 {
 }
 
 fn pack_uv(uv: [f32; 2]) -> u32 {
+    // IW4 uses the VU half-float packing used by GfxPackedVertex.
     (u32::from(f32_to_half(uv[0])) << 16) | u32::from(f32_to_half(uv[1]))
 }
 
+fn normalise(v: [f32; 3]) -> [f32; 3] {
+    let len_sq = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+    if len_sq <= f32::EPSILON {
+        return [0.0, 0.0, 1.0];
+    }
+    let inv = len_sq.sqrt().recip();
+    [v[0] * inv, v[1] * inv, v[2] * inv]
+}
+
+fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ]
+}
+
+fn add(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+fn sub(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+fn scale(v: [f32; 3], s: f32) -> [f32; 3] {
+    [v[0] * s, v[1] * s, v[2] * s]
+}
+
+fn pack_unit_vec(v: [f32; 3]) -> u32 {
+    // IW4's scale-based PackedUnitVec decode is:
+    // (byte - 127) * ((scale_byte + 192) / 32385).
+    // scale_byte=63 makes that exactly (byte - 127) / 127.
+    let v = normalise(v);
+    let enc = |x: f32| -> u8 {
+        (x.clamp(-1.0, 1.0) * 127.0 + 127.0)
+            .round()
+            .clamp(0.0, 254.0) as u8
+    };
+    u32::from(enc(v[0]))
+        | (u32::from(enc(v[1])) << 8)
+        | (u32::from(enc(v[2])) << 16)
+        | (63u32 << 24)
+}
+
+fn tangent_frames(surface: &asset_q3::Md3Surface) -> Vec<([f32; 3], f32)> {
+    let Some(vertices) = surface.frames.first() else {
+        return Vec::new();
+    };
+    let n = vertices.len();
+    let mut tan = vec![[0.0; 3]; n];
+    let mut bitan = vec![[0.0; 3]; n];
+
+    for tri in &surface.triangles {
+        let [i0, i1, i2] = tri.map(|v| v as usize);
+        if i0 >= n || i1 >= n || i2 >= n {
+            continue;
+        }
+        let p0 = vertices[i0].position;
+        let p1 = vertices[i1].position;
+        let p2 = vertices[i2].position;
+        let uv0 = surface.texcoords[i0];
+        let uv1 = surface.texcoords[i1];
+        let uv2 = surface.texcoords[i2];
+
+        let e1 = sub(p1, p0);
+        let e2 = sub(p2, p0);
+        let du1 = uv1[0] - uv0[0];
+        let dv1 = uv1[1] - uv0[1];
+        let du2 = uv2[0] - uv0[0];
+        let dv2 = uv2[1] - uv0[1];
+        let det = du1 * dv2 - dv1 * du2;
+        if det.abs() <= 1.0e-8 {
+            continue;
+        }
+        let inv = det.recip();
+        let t = scale(
+            sub(scale(e1, dv2), scale(e2, dv1)),
+            inv,
+        );
+        let b = scale(
+            sub(scale(e2, du1), scale(e1, du2)),
+            inv,
+        );
+        for i in [i0, i1, i2] {
+            tan[i] = add(tan[i], t);
+            bitan[i] = add(bitan[i], b);
+        }
+    }
+
+    vertices
+        .iter()
+        .enumerate()
+        .map(|(i, vertex)| {
+            let nrm = normalise(vertex.normal);
+            let projected = sub(tan[i], scale(nrm, dot(nrm, tan[i])));
+            let tangent = if dot(projected, projected) <= 1.0e-8 {
+                let seed = if nrm[2].abs() < 0.9 {
+                    [0.0, 0.0, 1.0]
+                } else {
+                    [0.0, 1.0, 0.0]
+                };
+                normalise(cross(seed, nrm))
+            } else {
+                normalise(projected)
+            };
+            let sign = if dot(cross(nrm, tangent), bitan[i]) < 0.0 {
+                -1.0
+            } else {
+                1.0
+            };
+            (tangent, sign)
+        })
+        .collect()
+}
+
 fn packed_vertex(
-    mut row: [u8; asset_iw4::size::GFX_PACKED_VERTEX],
     position: [f32; 3],
+    normal: [f32; 3],
+    tangent: [f32; 3],
+    binormal_sign: f32,
     uv: [f32; 2],
 ) -> [u8; asset_iw4::size::GFX_PACKED_VERTEX] {
+    let mut row = [0u8; asset_iw4::size::GFX_PACKED_VERTEX];
     row[0..4].copy_from_slice(&position[0].to_le_bytes());
     row[4..8].copy_from_slice(&position[1].to_le_bytes());
     row[8..12].copy_from_slice(&position[2].to_le_bytes());
+    row[12..16].copy_from_slice(&binormal_sign.to_le_bytes());
     row[16..20].copy_from_slice(&0xffff_ffffu32.to_le_bytes());
     row[20..24].copy_from_slice(&pack_uv(uv).to_le_bytes());
+    row[24..28].copy_from_slice(&pack_unit_vec(normal).to_le_bytes());
+    row[28..32].copy_from_slice(&pack_unit_vec(tangent).to_le_bytes());
     row
 }
 
@@ -78,6 +205,18 @@ fn transform_point(tag: Option<&asset_q3::Md3Tag>, p: [f32; 3]) -> [f32; 3] {
             + p[2] * tag.axis[2][2],
     ]
 }
+
+fn transform_vector(tag: Option<&asset_q3::Md3Tag>, p: [f32; 3]) -> [f32; 3] {
+    let Some(tag) = tag else {
+        return normalise(p);
+    };
+    normalise([
+        p[0] * tag.axis[0][0] + p[1] * tag.axis[1][0] + p[2] * tag.axis[2][0],
+        p[0] * tag.axis[0][1] + p[1] * tag.axis[1][1] + p[2] * tag.axis[2][1],
+        p[0] * tag.axis[0][2] + p[1] * tag.axis[1][2] + p[2] * tag.axis[2][2],
+    ])
+}
+
 
 #[derive(Resource, Clone, Copy, Debug)]
 pub(crate) struct Q3FpvMotion {
@@ -167,8 +306,8 @@ pub(crate) fn override_q3_fpv_placement(
 
     let local = Mat4::from_translation(Vec3::new(
         bob_right,
-        -raise_down + bob_up - 1.0,
-        recoil_back - 2.0,
+        -raise_down + bob_up,
+        recoil_back,
     )) * Mat4::from_rotation_x(recoil_pitch)
         * q3_model_to_camera();
 
@@ -203,14 +342,6 @@ pub(crate) fn override_q3_fpv(
         return;
     };
 
-    let packed_template = match &plan.packed_vertices {
-        asset_world::PackedVertexPayload::Iw4(rows) => rows.first().copied(),
-        asset_world::PackedVertexPayload::Unavailable { .. } => None,
-    };
-    let Some(packed_template) = packed_template else {
-        return;
-    };
-
     let tag = tag_weapon(entry);
     let mut packed = Vec::new();
     let mut indices = Vec::new();
@@ -225,10 +356,21 @@ pub(crate) fn override_q3_fpv(
             continue;
         }
 
+        let frames = tangent_frames(surface);
+        if frames.len() != vertices.len() {
+            continue;
+        }
+
         let vertex_base = packed.len() as u32;
-        for (vertex, uv) in vertices.iter().zip(&surface.texcoords) {
+        for ((vertex, uv), (tangent, sign)) in vertices
+            .iter()
+            .zip(&surface.texcoords)
+            .zip(frames.into_iter())
+        {
             let position = transform_point(tag, vertex.position);
-            packed.push(packed_vertex(packed_template, position, *uv));
+            let normal = transform_vector(tag, vertex.normal);
+            let tangent = transform_vector(tag, tangent);
+            packed.push(packed_vertex(position, normal, tangent, sign, *uv));
         }
 
         let start = indices.len() as u32;
@@ -301,7 +443,13 @@ mod tests {
 
     #[test]
     fn packed_vertex_uses_iw4_stride() {
-        let row = packed_vertex([0u8; asset_iw4::size::GFX_PACKED_VERTEX], [1.0, 2.0, 3.0], [0.5, 0.5]);
+        let row = packed_vertex(
+            [1.0, 2.0, 3.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            1.0,
+            [0.5, 0.5],
+        );
         assert_eq!(row.len(), asset_iw4::size::GFX_PACKED_VERTEX);
     }
 }
