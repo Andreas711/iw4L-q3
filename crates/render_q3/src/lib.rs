@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::RenderLayers,
@@ -21,6 +23,30 @@ struct Q3ViewRoot;
 #[derive(Component)]
 struct Q3ViewSurface;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum Q3ProjectileKey {
+    Authoritative(sim::ProjectileId),
+    Predicted {
+        owner: sim::ClientId,
+        weapon: sim::Quake3Weapon,
+        launch_time: i32,
+    },
+}
+
+#[derive(Component)]
+struct Q3ProjectileVisual {
+    key: Q3ProjectileKey,
+    weapon: sim::Quake3Weapon,
+}
+
+#[derive(Resource, Default)]
+struct Q3ProjectileMeshCache {
+    rows: HashMap<
+        sim::Quake3Weapon,
+        Vec<(Handle<Mesh>, Handle<StandardMaterial>)>,
+    >,
+}
+
 #[derive(Resource, Default)]
 struct Q3ViewState {
     weapon: Option<sim::Quake3Weapon>,
@@ -31,14 +57,17 @@ struct Q3ViewState {
 
 impl Plugin for RenderQ3Plugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Q3ViewState>().add_systems(
-            Update,
-            (
-                ensure_q3_view_camera,
-                sync_q3_view_model.after(ensure_q3_view_camera),
-            )
-                .in_set(net::ClientSet::Present),
-        );
+        app.init_resource::<Q3ViewState>()
+            .init_resource::<Q3ProjectileMeshCache>()
+            .add_systems(
+                Update,
+                (
+                    ensure_q3_view_camera,
+                    sync_q3_view_model.after(ensure_q3_view_camera),
+                    sync_q3_projectiles,
+                )
+                    .in_set(net::ClientSet::Present),
+            );
     }
 }
 
@@ -305,6 +334,200 @@ fn sync_q3_view_model(
     );
     root_transform.rotation = Quat::from_rotation_x(state.recoil * 0.06);
     *root_visibility = Visibility::Visible;
+}
+
+
+fn q3_world_surface_mesh(surface: &asset_q3::Md3Surface) -> Option<Mesh> {
+    let vertices = surface.frames.first()?;
+    if vertices.len() != surface.texcoords.len() {
+        return None;
+    }
+    let positions: Vec<[f32; 3]> = vertices.iter().map(|vertex| vertex.position).collect();
+    let normals: Vec<[f32; 3]> = vertices.iter().map(|vertex| normalise(vertex.normal)).collect();
+    let uvs: Vec<[f32; 2]> = surface
+        .texcoords
+        .iter()
+        .map(|uv| [uv[0], 1.0 - uv[1]])
+        .collect();
+    let indices: Vec<u32> = surface
+        .triangles
+        .iter()
+        .flat_map(|triangle| [triangle[0], triangle[1], triangle[2]])
+        .collect();
+
+    Some(
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+        )
+        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs),
+    )
+}
+
+fn projectile_meshes(
+    weapon: sim::Quake3Weapon,
+    q3_assets: &assets::PreparedQ3WeaponModels,
+    cache: &mut Q3ProjectileMeshCache,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) -> Option<Vec<(Handle<Mesh>, Handle<StandardMaterial>)>> {
+    if let Some(rows) = cache.rows.get(&weapon) {
+        return Some(rows.clone());
+    }
+
+    let source = q3_assets.assets.projectile(weapon)?;
+    let mut rows = Vec::new();
+    for (surface_index, surface) in source.model.surfaces.iter().enumerate() {
+        let Some(mesh) = q3_world_surface_mesh(surface) else {
+            continue;
+        };
+        let material = materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            base_color_texture: q3_assets
+                .projectile_texture_or_fallback(weapon, surface_index)
+                .cloned(),
+            unlit: true,
+            cull_mode: None,
+            fog_enabled: true,
+            ..default()
+        });
+        rows.push((meshes.add(mesh), material));
+    }
+    if rows.is_empty() {
+        return None;
+    }
+    cache.rows.insert(weapon, rows.clone());
+    Some(rows)
+}
+
+fn projectile_key(row: &net::PresentedProjectile) -> Option<Q3ProjectileKey> {
+    let weapon = row.q3_weapon()?;
+    match row {
+        net::PresentedProjectile::Authoritative(projectile) => {
+            Some(Q3ProjectileKey::Authoritative(projectile.id))
+        }
+        net::PresentedProjectile::Predicted {
+            owner,
+            launch_time,
+            ..
+        } => Some(Q3ProjectileKey::Predicted {
+            owner: *owner,
+            weapon,
+            launch_time: *launch_time,
+        }),
+    }
+}
+
+fn projectile_origin(
+    snapshot: &PresentedSnapshot,
+    row: &net::PresentedProjectile,
+    at_time: i32,
+) -> [f32; 3] {
+    match row {
+        net::PresentedProjectile::Authoritative(projectile) => {
+            snapshot.projectile_origin_at(projectile, at_time)
+        }
+        net::PresentedProjectile::Predicted { .. } => row.origin_at(at_time),
+    }
+}
+
+fn projectile_rotation(row: &net::PresentedProjectile, at_time: i32) -> Quat {
+    let velocity = row.velocity();
+    let direction = Vec3::from_array(velocity);
+    if direction.length_squared() > 1.0e-6 {
+        Quat::from_rotation_arc(Vec3::X, direction.normalize())
+    } else {
+        let angles = entity_iw4::evaluate_trajectory(&row.apos(), at_time);
+        Quat::from_euler(
+            EulerRot::ZYX,
+            angles[1].to_radians(),
+            angles[0].to_radians(),
+            angles[2].to_radians(),
+        )
+    }
+}
+
+fn sync_q3_projectiles(
+    mut commands: Commands,
+    q3_assets: Option<Res<assets::PreparedQ3WeaponModels>>,
+    presented: Res<PresentedSnapshot>,
+    clock: Res<FrameClock>,
+    mut cache: ResMut<Q3ProjectileMeshCache>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut visuals: Query<(Entity, &Q3ProjectileVisual, &mut Transform)>,
+) {
+    let Some(q3_assets) = q3_assets.as_ref() else {
+        return;
+    };
+    let at_time = presented.trajectory_time_ms(clock.time());
+    let rows = presented.presented_projectiles();
+
+    let mut live = HashMap::new();
+    for row in rows {
+        let Some(weapon) = row.q3_weapon() else {
+            continue;
+        };
+        let Some(key) = projectile_key(row) else {
+            continue;
+        };
+        live.insert(key, (weapon, row));
+    }
+
+    for (entity, visual, mut transform) in &mut visuals {
+        let Some((weapon, row)) = live.remove(&visual.key) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        if *weapon != visual.weapon {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        transform.translation = Vec3::from_array(projectile_origin(&presented, row, at_time));
+        transform.rotation = projectile_rotation(row, at_time);
+    }
+
+    for (key, (weapon, row)) in live {
+        let Some(parts) = projectile_meshes(
+            weapon,
+            q3_assets,
+            &mut cache,
+            &mut meshes,
+            &mut materials,
+        ) else {
+            // Plasma/BFG are shader-based Q3 effects and deliberately remain
+            // without an IW4 stand-in until their native effect lane lands.
+            continue;
+        };
+
+        let root = commands
+            .spawn((
+                Q3ProjectileVisual { key, weapon },
+                Transform {
+                    translation: Vec3::from_array(projectile_origin(&presented, row, at_time)),
+                    rotation: projectile_rotation(row, at_time),
+                    ..default()
+                },
+                Visibility::Visible,
+            ))
+            .id();
+        let mut children = Vec::with_capacity(parts.len());
+        for (mesh, material) in parts {
+            children.push(
+                commands
+                    .spawn((
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material),
+                        Transform::default(),
+                    ))
+                    .id(),
+            );
+        }
+        commands.entity(root).add_children(&children);
+    }
 }
 
 #[cfg(test)]
