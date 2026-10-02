@@ -83,10 +83,19 @@ pub struct Q3WeaponModel {
     pub surface_textures: Vec<Option<Q3Texture>>,
 }
 
+#[derive(Clone, Debug)]
+pub struct Q3ProjectileModel {
+    pub weapon: Quake3Weapon,
+    pub path: String,
+    pub model: Md3Model,
+    pub surface_textures: Vec<Option<Q3Texture>>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Q3WeaponAssetSet {
     pub source: PathBuf,
     pub models: Vec<Q3WeaponModel>,
+    pub projectiles: Vec<Q3ProjectileModel>,
     pub missing: Vec<String>,
 }
 
@@ -99,6 +108,14 @@ impl Q3WeaponAssetSet {
         self.models.len()
     }
 
+    pub fn projectile(&self, weapon: Quake3Weapon) -> Option<&Q3ProjectileModel> {
+        self.projectiles.iter().find(|entry| entry.weapon == weapon)
+    }
+
+    pub fn projectile_count(&self) -> usize {
+        self.projectiles.len()
+    }
+
     pub fn texture_count(&self) -> usize {
         self.models
             .iter()
@@ -109,6 +126,21 @@ impl Q3WeaponAssetSet {
 
     pub fn surface_count(&self) -> usize {
         self.models.iter().map(|model| model.model.surfaces.len()).sum()
+    }
+
+    pub fn projectile_texture_count(&self) -> usize {
+        self.projectiles
+            .iter()
+            .flat_map(|model| model.surface_textures.iter())
+            .filter(|texture| texture.is_some())
+            .count()
+    }
+
+    pub fn projectile_surface_count(&self) -> usize {
+        self.projectiles
+            .iter()
+            .map(|model| model.model.surfaces.len())
+            .sum()
     }
 }
 
@@ -399,6 +431,47 @@ pub fn load_weapon_models(baseq3: impl AsRef<Path>) -> Result<Q3WeaponAssetSet, 
             Err(error) => return Err(error.into()),
         }
     }
+
+    for (weapon, path) in [
+        (
+            Quake3Weapon::GrenadeLauncher,
+            "models/ammo/grenade1.md3",
+        ),
+        (
+            Quake3Weapon::RocketLauncher,
+            "models/ammo/rocket/rocket.md3",
+        ),
+    ] {
+        match pk3.read(path) {
+            Ok(bytes) => {
+                let model = parse_md3(&bytes).map_err(|error| WeaponAssetError::Md3 {
+                    path: path.to_owned(),
+                    error,
+                })?;
+                let surface_textures = model
+                    .surfaces
+                    .iter()
+                    .map(|surface| {
+                        surface
+                            .shaders
+                            .first()
+                            .and_then(|shader| {
+                                read_q3_texture_resolved(&mut pk3, &shader_maps, shader)
+                            })
+                    })
+                    .collect();
+                set.projectiles.push(Q3ProjectileModel {
+                    weapon,
+                    path: path.to_owned(),
+                    model,
+                    surface_textures,
+                });
+            }
+            Err(Pk3Error::Missing(_)) => set.missing.push(path.to_owned()),
+            Err(error) => return Err(error.into()),
+        }
+    }
+
     Ok(set)
 }
 
