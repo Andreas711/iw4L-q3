@@ -1358,6 +1358,14 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
             let Some(target_meta) = world.client_meta(target) else {
                 continue;
             };
+            if projectile.q3_weapon.is_some() {
+                crate::damage::apply_q3_direct_knockback(
+                    world,
+                    target,
+                    projectile.velocity,
+                    facts.impact_damage.max(0),
+                );
+            }
             let intent = DamageAttempt {
                 splash: false,
                 source: DamageSource::Projectile(projectile.id),
@@ -1451,7 +1459,11 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
             attacker_life: info.projectile.owner_life,
             killcam_entity_start_time: projectile_birth_ms(&info.projectile),
         };
-        crate::damage::apply_explosion_blast(world, tick, &blast);
+        if info.projectile.q3_weapon.is_some() {
+            crate::damage::apply_q3_explosion_blast(world, tick, &blast);
+        } else {
+            crate::damage::apply_explosion_blast(world, tick, &blast);
+        }
         crate::damage::apply_shared_glass_blast(
             world,
             tick,
