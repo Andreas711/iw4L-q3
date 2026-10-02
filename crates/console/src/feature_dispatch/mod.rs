@@ -49,6 +49,7 @@ pub(crate) fn route_debug_feature_commands(
     ),
     (mut hurt, mut pending_splash): (ResMut<PendingViewHurt>, ResMut<PendingSplash>),
     local: Option<Res<net::LocalPresentClient>>,
+    q3_assets: Option<Res<assets::PreparedQ3WeaponModels>>,
 ) {
     let (console, settings, line) = &mut output;
     let capacity = settings.log_capacity;
@@ -131,6 +132,30 @@ pub(crate) fn route_debug_feature_commands(
                     }
                 }
             },
+            "q3assets" => {
+                let Some(q3_assets) = q3_assets.as_ref() else {
+                    echo("q3assets: asset resource unavailable".into(), console, line);
+                    continue;
+                };
+                if let Some(error) = &q3_assets.error {
+                    echo(format!("q3assets: {error}"), console, line);
+                    continue;
+                }
+                let source = q3_assets
+                    .source
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+                    .unwrap_or_else(|| "<not configured>".to_owned());
+                echo(
+                    format!(
+                        "q3assets: source={source} loaded={} missing={}",
+                        q3_assets.assets.loaded_count(),
+                        q3_assets.assets.missing.len()
+                    ),
+                    console,
+                    line,
+                );
+            }
             "q3give" => {
                 let ids: Vec<u8> = match cmd.args.first().map(String::as_str) {
                     Some("all") => (1u8..=9).collect(),
@@ -425,6 +450,10 @@ pub fn register_feature_commands(registry: &mut crate::ConsoleRegistry, maps: &[
         (
             "menu",
             "menu [open <screen> | nav up|down | accept | back | dump] — shell surface; back/device remain typed gaps (S2/S4)",
+        ),
+        (
+            "q3assets",
+            "q3assets — report Quake III pak0.pk3 weapon-model loading",
         ),
         (
             "q3give",
