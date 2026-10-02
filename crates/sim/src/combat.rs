@@ -1203,8 +1203,78 @@ pub(crate) fn fire_q3_weapon_debug(
         });
     }
 
-    let _ = phase_trace(world, tick, &emissions);
+    phase_trace_q3_hitscan(world, tick, &emissions);
     true
+}
+
+fn phase_trace_q3_hitscan(world: &mut FrameWorld, tick: Tick, emissions: &[Emission]) {
+    for em in emissions {
+        let Some(q3_weapon) = em.q3_weapon else {
+            continue;
+        };
+        let end = core::array::from_fn(|i| em.origin[i] + em.direction[i] * em.max_range);
+        let lag = world.lagcomp_query_for(em.attacker, tick);
+        let trace = bullet_trace_with_entity_models(
+            world.clip_brushes(),
+            world.clip_bsp(),
+            world.clip_cmodels(),
+            world.clip_mesh(),
+            &lag.players.poses,
+            &lag.entities.rows,
+            &BulletTraceQuery {
+                start: em.origin,
+                end,
+                mask: MASK_BULLET_WORLD,
+                ignore: Some(em.attacker),
+                ignore_hit: None,
+                ignore_model: None,
+            },
+            &|piece| world.world_objects().glass_is_solid(u32::from(piece)),
+        );
+
+        let TraceOutcome::Hit { collider, .. } = trace else {
+            continue;
+        };
+        let ColliderId::Player {
+            client: victim,
+            life: victim_life,
+            ..
+        } = collider
+        else {
+            // Q3 hitscans stop at the first solid hit. No IW4 penetration,
+            // ricochet, material depth, distance falloff or bullet payload.
+            continue;
+        };
+
+        if !world.publishes_snapshot()
+            || !world
+                .client_meta(victim)
+                .is_some_and(|meta| meta.lifecycle == ClientLifecycle::Alive)
+        {
+            continue;
+        }
+
+        crate::damage::apply_q3_direct_knockback(world, victim, em.direction, em.base_damage);
+        let attempt = crate::DamageAttempt {
+            splash: false,
+            source: if q3_weapon == weapon_q3::Quake3Weapon::Gauntlet {
+                DamageSource::Melee
+            } else {
+                DamageSource::Shot(em.shot_id)
+            },
+            pellet: em.pellet,
+            attacker: em.attacker,
+            attacker_life: em.attacker_life,
+            target: victim,
+            target_life: victim_life,
+            weapon: em.weapon,
+            amount: em.base_damage,
+            killcam_entity_start_time: 0,
+            inflictor_origin: None,
+            hitloc: 0,
+        };
+        let _ = crate::damage::apply_q3_damage_attempt(world, tick, &attempt);
+    }
 }
 
 fn fire_q3_railgun_piercing(world: &mut FrameWorld, tick: Tick, id: ClientId) -> bool {
@@ -1321,7 +1391,7 @@ fn fire_q3_railgun_piercing(world: &mut FrameWorld, tick: Tick, id: ClientId) ->
                 inflictor_origin: None,
                 hitloc: 0,
             };
-            let _ = crate::damage::apply_damage_attempt(world, tick, &attempt);
+            let _ = crate::damage::apply_q3_damage_attempt(world, tick, &attempt);
         }
 
         ignore_hit = Some(victim);
@@ -1373,7 +1443,7 @@ fn fire_q3_gauntlet_debug(world: &mut FrameWorld, tick: Tick, id: ClientId) -> b
         max_range: weapon_q3::gauntlet::GAUNTLET.range,
         base_damage: weapon_q3::gauntlet::GAUNTLET.damage,
     };
-    let _ = phase_trace(world, tick, core::slice::from_ref(&emission));
+    phase_trace_q3_hitscan(world, tick, core::slice::from_ref(&emission));
     true
 }
 
