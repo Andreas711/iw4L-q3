@@ -1051,7 +1051,24 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
                     });
                 }
                 Some(ColliderId::Player { client, .. }) => {
-                    if facts.stick_to_players {
+                    if matches!(
+                        projectile.q3_weapon,
+                        Some(weapon_q3::Quake3Weapon::GrenadeLauncher)
+                    ) {
+                        direct_hits.push((projectile, client));
+                        pending_detonation = Some(PendingDetonation {
+                            projectile,
+                            origin: end,
+                            normal,
+                            surf_type: 0,
+                            geometry: ProjectileHitGeometry::Player,
+                            terminal: collider,
+                            amount: facts.impact_damage.max(0),
+                            fraction: Some(fraction),
+                            surface_flags: None,
+                            splash: true,
+                        });
+                    } else if facts.stick_to_players {
                         if facts.impact_damage > 0 {
                             direct_hits.push((projectile, client));
                         }
