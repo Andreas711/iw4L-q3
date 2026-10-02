@@ -261,12 +261,10 @@ fn sync_q3_view_model(
 
 
     let Some(q3_assets) = q3_assets.as_ref() else {
-        q3_camera.is_active = false;
         *root_visibility = Visibility::Hidden;
         return;
     };
     let Some(model) = q3_assets.assets.model(runtime.weapon) else {
-        q3_camera.is_active = false;
         *root_visibility = Visibility::Hidden;
         return;
     };
