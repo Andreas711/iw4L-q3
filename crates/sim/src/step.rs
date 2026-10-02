@@ -481,7 +481,35 @@ fn run_players_system(ecs: &mut World) {
             world.set_pmove_walking(*id, walking);
             world.link_player_area(*id, linked_bounds);
 
-            let shots = advance_weapon_command(&mut world, tick, *id, cmd, delta.min(200));
+            let mut iw4_cmd = cmd;
+            if let Some(q3) = world.q3_weapon_runtime(*id) {
+                iw4_cmd.buttons &= !playerstate_iw4::buttons::ATTACK;
+                let now_ms = crate::level_time_ms(tick);
+                if cmd.buttons & playerstate_iw4::buttons::ATTACK != 0
+                    && now_ms >= q3.next_fire_time_ms
+                {
+                    let hitbox_ids = [*id];
+                    let hitboxes = if world.publishes_snapshot() {
+                        None
+                    } else {
+                        Some(hitbox_ids.as_slice())
+                    };
+                    world.record_collision_history(tick, 0, hitboxes);
+                    if world.publishes_snapshot() {
+                        world.record_entity_collision_history(tick);
+                    }
+                    if crate::combat::fire_q3_weapon_debug(
+                        &mut world,
+                        tick,
+                        *id,
+                        q3.weapon as u8,
+                    ) {
+                        world.q3_commit_fire(*id, now_ms);
+                    }
+                }
+            }
+
+            let shots = advance_weapon_command(&mut world, tick, *id, iw4_cmd, delta.min(200));
             for shot in shots {
                 crate::missile::fire_accepted_shot(&mut world, tick, &shot);
 
@@ -918,7 +946,19 @@ fn apply_actions(world: &mut FrameWorld, tick: Tick, actions: &[(ClientId, Clien
                 request_id: _,
                 amount,
             } => {
-                if let Some(weapon) = crate::q3_debug_fire_weapon(amount) {
+                if let Some(weapon) = crate::q3_debug_select_weapon(amount) {
+                    if !world.bootstrap_ref().allow_debug_actions {
+                        continue;
+                    }
+                    world.select_q3_weapon(
+                        *id,
+                        if weapon == 0 {
+                            None
+                        } else {
+                            weapon_q3::Quake3Weapon::from_id(weapon)
+                        },
+                    );
+                } else if let Some(weapon) = crate::q3_debug_fire_weapon(amount) {
                     let _ = crate::combat::fire_q3_weapon_debug(world, tick, *id, weapon);
                 } else {
                     apply_debug_damage(world, tick, *id, amount);
