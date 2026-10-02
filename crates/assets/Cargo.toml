@@ -15,6 +15,7 @@ asset_audio.workspace = true
 asset_game.workspace = true
 asset_material.workspace = true
 asset_model.workspace = true
+asset_q3.workspace = true
 asset_transport.workspace = true
 asset_world.workspace = true
 weapon_iw4.workspace = true
