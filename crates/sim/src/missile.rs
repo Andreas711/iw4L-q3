@@ -190,6 +190,7 @@ fn fire_missile(
         owner: shot.attacker,
         owner_life: shot.attacker_life,
         weapon: shot.weapon,
+        q3_weapon: None,
         origin,
         velocity,
         pos,
