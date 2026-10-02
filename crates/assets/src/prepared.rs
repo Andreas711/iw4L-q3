@@ -77,6 +77,7 @@ pub struct PreparedQ3WeaponModels {
     pub source: Option<std::path::PathBuf>,
     pub assets: std::sync::Arc<asset_q3::Q3WeaponAssetSet>,
     pub textures: Vec<Q3SurfaceTextureHandle>,
+    pub fallback_white: Option<bevy::prelude::Handle<bevy::prelude::Image>>,
     pub error: Option<String>,
 }
 
@@ -90,6 +91,15 @@ impl PreparedQ3WeaponModels {
             .iter()
             .find(|row| row.weapon == weapon as u8 && row.surface == surface)
             .map(|row| &row.image)
+    }
+
+    pub fn texture_or_fallback(
+        &self,
+        weapon: weapon_q3::Quake3Weapon,
+        surface: usize,
+    ) -> Option<&bevy::prelude::Handle<bevy::prelude::Image>> {
+        self.texture(weapon, surface)
+            .or(self.fallback_white.as_ref())
     }
 }
 
