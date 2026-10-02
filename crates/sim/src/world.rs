@@ -3169,7 +3169,10 @@ impl SimState {
             .entry(id)
             .or_insert_with(Q3WeaponRuntime::spawn_default);
         state.owned_mask |= 1 << weapon as u8;
-        state.ammo[weapon as usize] = if weapon.uses_ammo() { 200 } else { -1 };
+        // q3use is a developer equip path, not an item pickup. Keep it armed
+        // indefinitely so presentation/weapon testing does not stop after a
+        // handful of shots. q3give still exercises real pickup quantities.
+        state.ammo[weapon as usize] = -1;
     }
 
     pub(crate) fn q3_can_fire(&self, id: ClientId, now_ms: i32) -> bool {
