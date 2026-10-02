@@ -49,14 +49,16 @@ native Q3 projectile container.
 
 ## Presentation domain
 
-`render_q3` is a separate first-person presentation lane. It owns a dedicated
-viewmodel camera/render layer, converts MD3 surfaces directly to Bevy meshes,
-and binds Q3 textures directly through Q3-owned materials. It does not mutate
-IW4 viewmodel geometry, borrow an MW2 weapon material, or hijack an MW2 texture
-slot.
+`render_q3` is a separate first-person presentation lane. It converts MD3
+surfaces directly to Bevy meshes and binds Q3 textures directly through
+Q3-owned materials. It shares the engine's existing world camera/render target
+instead of creating a second Camera3d, because IW4's custom render graph is
+defined around one world view. It does not mutate IW4 viewmodel geometry,
+borrow an MW2 weapon material, or hijack an MW2 texture slot.
 
 When a Q3 weapon is active, the IW4 first-person draw plan is simply left empty.
-The two presentation domains therefore do not share weapon models or materials.
+The two presentation domains therefore do not share weapon models or materials;
+they only meet at the generic engine camera/render target boundary.
 
 Projectile presentation is the next part of this same boundary: Rocket,
 Grenade, Plasma and BFG visuals should be submitted by `render_q3` from the
