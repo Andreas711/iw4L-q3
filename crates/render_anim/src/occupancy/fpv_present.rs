@@ -1175,6 +1175,9 @@ pub fn register_fpv_present_systems(app: &mut App) {
                 skin_fpv_geometry
                     .after(tick_fpv_viewmodel)
                     .in_set(FpvGeometrySet),
+                crate::occupancy::q3_fpv::override_q3_fpv
+                    .after(skin_fpv_geometry)
+                    .in_set(FpvGeometrySet),
                 publish_fpv_notetracks.after(tick_fpv_viewmodel),
                 apply_fpv_placement
                     .after(tick_fpv_viewmodel)
