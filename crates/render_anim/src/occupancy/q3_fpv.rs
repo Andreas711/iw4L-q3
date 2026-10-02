@@ -116,7 +116,7 @@ fn packed_vertex(position: [f32; 3], normal: [f32; 3], uv: [f32; 2]) -> [u8; 32]
     row
 }
 
-fn override_q3_fpv(
+pub(crate) fn override_q3_fpv(
     q3: Option<Res<assets::PreparedQ3WeaponModels>>,
     presented: Res<PresentedSnapshot>,
     local: Res<LocalPresentClient>,
@@ -208,15 +208,6 @@ fn override_q3_fpv(
     plan.revisions.bump_draws();
     plan.revision = plan.revision.wrapping_add(1);
     plan.settle_visible();
-}
-
-pub fn register_q3_fpv_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        override_q3_fpv
-            .after(crate::FpvGeometrySet)
-            .in_set(ClientSet::Present),
-    );
 }
 
 #[cfg(test)]
