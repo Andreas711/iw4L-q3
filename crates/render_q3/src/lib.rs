@@ -482,7 +482,7 @@ fn sync_q3_projectiles(
             commands.entity(entity).despawn();
             continue;
         };
-        if *weapon != visual.weapon {
+        if weapon != visual.weapon {
             commands.entity(entity).despawn();
             continue;
         }
