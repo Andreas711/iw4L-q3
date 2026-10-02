@@ -65,11 +65,32 @@ pub struct PreparedKillstreaks(pub Vec<String>);
 #[derive(Clone, Debug, Default, Resource)]
 pub struct PreparedWeapons(pub std::sync::Arc<WeaponRegistry>);
 
+#[derive(Clone, Debug)]
+pub struct Q3SurfaceTextureHandle {
+    pub weapon: u8,
+    pub surface: usize,
+    pub image: bevy::prelude::Handle<bevy::prelude::Image>,
+}
+
 #[derive(Clone, Debug, Default, Resource)]
 pub struct PreparedQ3WeaponModels {
     pub source: Option<std::path::PathBuf>,
     pub assets: std::sync::Arc<asset_q3::Q3WeaponAssetSet>,
+    pub textures: Vec<Q3SurfaceTextureHandle>,
     pub error: Option<String>,
+}
+
+impl PreparedQ3WeaponModels {
+    pub fn texture(
+        &self,
+        weapon: weapon_q3::Quake3Weapon,
+        surface: usize,
+    ) -> Option<&bevy::prelude::Handle<bevy::prelude::Image>> {
+        self.textures
+            .iter()
+            .find(|row| row.weapon == weapon as u8 && row.surface == surface)
+            .map(|row| &row.image)
+    }
 }
 
 
