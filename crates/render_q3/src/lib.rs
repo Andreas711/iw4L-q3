@@ -2,22 +2,14 @@ use std::collections::HashMap;
 
 use bevy::{
     asset::RenderAssetUsages,
-    camera::visibility::RenderLayers,
-    core_pipeline::tonemapping::Tonemapping,
     mesh::{Indices, PrimitiveTopology},
     prelude::*,
-    render::view::Msaa,
 };
 use net::{FrameClock, LocalPresentClient, PresentedSnapshot};
 
 pub struct RenderQ3Plugin;
 
-const Q3_VIEW_LAYER: usize = 31;
-const Q3_VIEW_FOV_DEGREES: f32 = 72.0;
 const Q3_MODEL_SCALE: f32 = 0.025;
-
-#[derive(Component)]
-struct Q3ViewCamera;
 
 #[derive(Component)]
 struct Q3ViewRoot;
@@ -64,8 +56,8 @@ impl Plugin for RenderQ3Plugin {
             .add_systems(
                 Update,
                 (
-                    ensure_q3_view_camera,
-                    sync_q3_view_model.after(ensure_q3_view_camera),
+                    ensure_q3_view_root,
+                    sync_q3_view_model.after(ensure_q3_view_root),
                     sync_q3_projectiles,
                 )
                     .in_set(net::ClientSet::Present),
@@ -73,53 +65,29 @@ impl Plugin for RenderQ3Plugin {
     }
 }
 
-fn ensure_q3_view_camera(
+fn ensure_q3_view_root(
     mut commands: Commands,
     world_camera: Query<Entity, With<render_scene::FlyCamera>>,
-    q3_camera: Query<Entity, With<Q3ViewCamera>>,
+    roots: Query<Entity, With<Q3ViewRoot>>,
 ) {
-    if !q3_camera.is_empty() {
+    if !roots.is_empty() {
         return;
     }
     let Ok(parent) = world_camera.single() else {
         return;
     };
 
-    let camera = commands
-        .spawn((
-            Q3ViewCamera,
-            Camera3d::default(),
-            Camera {
-                // Main IW4 world is earlier; HUD/UI cameras use higher orders.
-                // Keep Q3 viewmodels in their own deterministic overlay slot.
-                order: 10,
-                is_active: false,
-                clear_color: ClearColorConfig::None,
-                ..default()
-            },
-            Msaa::Off,
-            Tonemapping::None,
-            Projection::from(PerspectiveProjection {
-                fov: Q3_VIEW_FOV_DEGREES.to_radians(),
-                near: 0.01,
-                far: 10.0,
-                ..default()
-            }),
-            RenderLayers::layer(Q3_VIEW_LAYER),
-            Transform::default(),
-        ))
-        .id();
-    commands.entity(parent).add_child(camera);
-
+    // Q3 presentation shares the engine's existing world camera/render target.
+    // It does not create a second Camera3d, so IW4 render nodes only execute
+    // once and keep their native target format.
     let root = commands
         .spawn((
             Q3ViewRoot,
             Transform::default(),
             Visibility::Hidden,
-            RenderLayers::layer(Q3_VIEW_LAYER),
         ))
         .id();
-    commands.entity(camera).add_child(root);
+    commands.entity(parent).add_child(root);
 }
 
 fn q3_tag_weapon(model: &asset_q3::Q3WeaponModel) -> Option<&asset_q3::Md3Tag> {
@@ -256,7 +224,6 @@ fn rebuild_weapon(
                 Mesh3d(meshes.add(mesh)),
                 MeshMaterial3d(material),
                 Transform::default(),
-                RenderLayers::layer(Q3_VIEW_LAYER),
             ))
             .id();
         children.push(entity);
@@ -271,15 +238,11 @@ fn sync_q3_view_model(
     local: Res<LocalPresentClient>,
     clock: Res<FrameClock>,
     mut state: ResMut<Q3ViewState>,
-    mut cameras: Query<&mut Camera, With<Q3ViewCamera>>,
     mut roots: Query<(Entity, &mut Transform, &mut Visibility), With<Q3ViewRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let Ok((root_entity, mut root_transform, mut root_visibility)) = roots.single_mut() else {
-        return;
-    };
-    let Ok(mut q3_camera) = cameras.single_mut() else {
         return;
     };
 
@@ -290,14 +253,12 @@ fn sync_q3_view_model(
         .filter(|runtime| runtime.active);
 
     let Some(runtime) = runtime else {
-        q3_camera.is_active = false;
         *root_visibility = Visibility::Hidden;
         state.weapon = None;
         state.recoil = 0.0;
         return;
     };
 
-    q3_camera.is_active = true;
 
     let Some(q3_assets) = q3_assets.as_ref() else {
         q3_camera.is_active = false;
