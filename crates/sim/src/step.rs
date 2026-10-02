@@ -486,7 +486,7 @@ fn run_players_system(ecs: &mut World) {
                 iw4_cmd.buttons &= !playerstate_iw4::buttons::ATTACK;
                 let now_ms = crate::level_time_ms(tick);
                 if cmd.buttons & playerstate_iw4::buttons::ATTACK != 0
-                    && now_ms >= q3.next_fire_time_ms
+                    && world.q3_can_fire(*id, now_ms)
                 {
                     let hitbox_ids = [*id];
                     let hitboxes = if world.publishes_snapshot() {
@@ -946,7 +946,14 @@ fn apply_actions(world: &mut FrameWorld, tick: Tick, actions: &[(ClientId, Clien
                 request_id: _,
                 amount,
             } => {
-                if let Some(weapon) = crate::q3_debug_select_weapon(amount) {
+                if let Some(weapon) = crate::q3_debug_give_weapon(amount) {
+                    if !world.bootstrap_ref().allow_debug_actions {
+                        continue;
+                    }
+                    if let Some(weapon) = weapon_q3::Quake3Weapon::from_id(weapon) {
+                        world.q3_give_weapon(*id, weapon);
+                    }
+                } else if let Some(weapon) = crate::q3_debug_select_weapon(amount) {
                     if !world.bootstrap_ref().allow_debug_actions {
                         continue;
                     }
