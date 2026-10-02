@@ -67,6 +67,7 @@ members = [
     "crates/ui",
     "crates/updater",
     "crates/weapon_iw4",
+    "crates/weapon_q3",
     "crates/xmodel_runtime",
     "xtask",
 ]
@@ -165,6 +166,7 @@ sim = { path = "crates/sim" }
 trace_iw4 = { path = "crates/trace_iw4" }
 ui = { path = "crates/ui" }
 weapon_iw4 = { path = "crates/weapon_iw4" }
+weapon_q3 = { path = "crates/weapon_q3" }
 xmodel_runtime = { path = "crates/xmodel_runtime" }
 glam = "0.32.1"
 
