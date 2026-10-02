@@ -201,4 +201,19 @@ mod tests {
         assert_eq!(W::LightningGun.weapon_pickup_ammo(), 100);
         assert_eq!(W::Bfg.ammo_pickup_amount(), 15);
     }
+
+    #[test]
+    fn q3_self_damage_is_halved_after_knockback_basis() {
+        assert_eq!(super::self_damage(100), 50);
+        assert_eq!(super::self_damage(1), 1);
+    }
+
+    #[test]
+    fn q3_knockback_uses_base_1000_over_mass_200() {
+        let delta = super::knockback_velocity_delta([1.0, 0.0, 0.0], 100);
+        assert_eq!(delta, [500.0, 0.0, 0.0]);
+
+        let capped = super::knockback_velocity_delta([0.0, 0.0, 1.0], 500);
+        assert_eq!(capped, [0.0, 0.0, 1000.0]);
+    }
 }
