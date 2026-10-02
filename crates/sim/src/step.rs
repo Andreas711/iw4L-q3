@@ -498,7 +498,7 @@ fn run_players_system(ecs: &mut World) {
                     if world.publishes_snapshot() {
                         world.record_entity_collision_history(tick);
                     }
-                    if crate::combat::fire_q3_weapon_debug(
+                    if crate::combat::fire_q3_weapon(
                         &mut world,
                         tick,
                         *id,
@@ -973,7 +973,7 @@ fn apply_actions(world: &mut FrameWorld, tick: Tick, actions: &[(ClientId, Clien
                         },
                     );
                 } else if let Some(weapon) = crate::q3_debug_fire_weapon(amount) {
-                    let _ = crate::combat::fire_q3_weapon_debug(world, tick, *id, weapon);
+                    let _ = crate::combat::fire_q3_weapon(world, tick, *id, weapon);
                 } else {
                     apply_debug_damage(world, tick, *id, amount);
                 }
