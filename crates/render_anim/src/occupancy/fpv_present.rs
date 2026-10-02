@@ -771,6 +771,7 @@ fn skin_fpv_geometry(
         .and_then(|(snapshot, local)| snapshot.meta.for_client(local.0))
         .and_then(|meta| meta.q3_weapon)
         .is_some_and(|runtime| runtime.active);
+    fpv_plan.force_scene_admission = q3_active;
     if q3_active {
         // Q3 owns the FPV geometry while active. Do not let the normal IW4
         // skin pass write an IW4 rig into the Q3-sized vertex bank. Reset the
