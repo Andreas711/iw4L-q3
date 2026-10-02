@@ -425,6 +425,8 @@ pub(crate) fn override_q3_fpv(
     };
     plan.revisions.topology = topology;
     plan.revisions.bump_vertices();
+    plan.revisions.bump_surfaces();
+    plan.revisions.bump_materials();
     plan.revisions.bump_draws();
     plan.revision = plan.revision.wrapping_add(1);
     plan.settle_visible();
