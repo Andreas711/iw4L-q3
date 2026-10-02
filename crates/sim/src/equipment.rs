@@ -1794,6 +1794,39 @@ fn bounce_missile(
     projectile.grounded |= normal[2] > 0.7;
     projectile.velocity = projectile.velocity_at(hit_time);
     let incoming = projectile.velocity;
+
+    if matches!(
+        projectile.q3_weapon,
+        Some(weapon_q3::Quake3Weapon::GrenadeLauncher)
+    ) {
+        // Quake III EF_BOUNCE_HALF: reflect, scale the whole outgoing
+        // velocity by 0.65, and settle on shallow floors below 40 units/s.
+        let n = vec3_normalize(normal).unwrap_or([0.0, 0.0, 1.0]);
+        let dot = incoming[0] * n[0] + incoming[1] * n[1] + incoming[2] * n[2];
+        let outgoing = [
+            (incoming[0] - 2.0 * dot * n[0]) * 0.65,
+            (incoming[1] - 2.0 * dot * n[1]) * 0.65,
+            (incoming[2] - 2.0 * dot * n[2]) * 0.65,
+        ];
+        let placed = [
+            origin[0] + n[0],
+            origin[1] + n[1],
+            origin[2] + n[2],
+        ];
+        projectile.origin = placed;
+        projectile.pos.tr_base = placed;
+        projectile.pos.tr_time = time;
+        if normal[2] > 0.2 && vec3_length(outgoing) < 40.0 {
+            projectile.velocity = [0.0; 3];
+            projectile.pos.tr_delta = [0.0; 3];
+            projectile.pos.tr_type = TR_STATIONARY;
+        } else {
+            projectile.velocity = outgoing;
+            projectile.pos.tr_delta = outgoing;
+        }
+        return;
+    }
+
     let facts = projectile_runtime_facts(world, &projectile);
     bounce_velocity(projectile, normal, &facts, surf_type);
     let outgoing = projectile.velocity;
