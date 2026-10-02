@@ -1380,7 +1380,7 @@ impl SimState {
                     .skip(1)
                     .find_map(|(index, name)| {
                         let lower = name.to_ascii_lowercase();
-                        (lower.contains(needle)
+                        (lower.contains(*needle)
                             && self
                                 .content
                                 .data
