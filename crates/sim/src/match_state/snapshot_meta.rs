@@ -9,6 +9,15 @@ use super::client_view::{
 use super::events::{EntityEventRecord, EventRecord, PelletFxRecord, SimEvent};
 use super::loadout::LoadoutSpec;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Q3WeaponSnapshot {
+    pub active: bool,
+    pub weapon: weapon_q3::Quake3Weapon,
+    pub next_fire_time_ms: i32,
+    pub owned_mask: u16,
+    pub ammo: [i16; 10],
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ClientSnapshotMeta {
     pub shield: Option<crate::ShieldAttachment>,
@@ -35,6 +44,8 @@ pub struct ClientSnapshotMeta {
     pub remote_missile: Option<RemoteMissile>,
 
     pub ammo_by_weapon: Vec<(u32, i32, i32)>,
+
+    pub q3_weapon: Option<Q3WeaponSnapshot>,
 
     pub taped_mag_spent: Vec<u32>,
 
