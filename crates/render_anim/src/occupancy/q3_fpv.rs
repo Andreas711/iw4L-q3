@@ -281,7 +281,7 @@ fn q3_base_material_candidates(
 
 fn bind_q3_surface_textures(
     q3: &assets::PreparedQ3WeaponModels,
-    weapon: weapon_q3::Quake3Weapon,
+    weapon: sim::Quake3Weapon,
     surface_count: usize,
     images: &mut assets::image_handles::RuntimeImageHandles,
     state: &mut Q3FpvTextureSwap,
