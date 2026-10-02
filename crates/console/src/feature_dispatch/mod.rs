@@ -134,6 +134,7 @@ pub(crate) fn route_debug_feature_commands(
             "q3use" => {
                 let weapon = match cmd.args.first().map(String::as_str) {
                     Some("off" | "none" | "iw4") => 0,
+                    Some("gauntlet" | "melee") => 1,
                     Some("machinegun" | "mg") => 2,
                     Some("shotgun" | "sg") => 3,
                     Some("grenade" | "gl" | "grenadelauncher") => 4,
@@ -152,7 +153,7 @@ pub(crate) fn route_debug_feature_commands(
                     }
                     None => {
                         echo(
-                            "usage: q3use machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg|off".into(),
+                            "usage: q3use gauntlet|machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg|off".into(),
                             console,
                             line,
                         );
@@ -194,6 +195,7 @@ pub(crate) fn route_debug_feature_commands(
                     7u8
                 } else {
                     match cmd.args.first().map(String::as_str) {
+                        Some("gauntlet" | "melee") => 1,
                         Some("machinegun" | "mg") => 2,
                         Some("shotgun" | "sg") => 3,
                         Some("grenade" | "gl" | "grenadelauncher") => 4,
@@ -204,7 +206,7 @@ pub(crate) fn route_debug_feature_commands(
                         Some("bfg") => 9,
                         Some(other) => {
                             echo(
-                                format!("q3fire: `{other}` is not live yet; use machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg"),
+                                format!("q3fire: `{other}` is not live yet; use gauntlet|machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg"),
                                 console,
                                 line,
                             );
@@ -212,7 +214,7 @@ pub(crate) fn route_debug_feature_commands(
                         }
                         None => {
                             echo(
-                                "usage: q3fire machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg".into(),
+                                "usage: q3fire gauntlet|machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg".into(),
                                 console,
                                 line,
                             );
@@ -382,7 +384,7 @@ pub fn register_feature_commands(registry: &mut crate::ConsoleRegistry, maps: &[
         ),
         (
             "q3use",
-            "q3use machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg|off — select a Q3 weapon for normal left-click firing",
+            "q3use gauntlet|machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg|off — select a Q3 weapon for normal left-click firing",
         ),
         (
             "q3rail",
@@ -390,7 +392,7 @@ pub fn register_feature_commands(registry: &mut crate::ConsoleRegistry, maps: &[
         ),
         (
             "q3fire",
-            "q3fire machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg — fire a live Quake III weapon",
+            "q3fire gauntlet|machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg — fire a live Quake III weapon",
         ),
         ("hurt", "hurt — stamp one undirected damage-feedback punch"),
         (
