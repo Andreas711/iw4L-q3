@@ -23,7 +23,7 @@ pub const fn q3_debug_fire_amount(weapon: u8) -> Option<i32> {
 
 #[must_use]
 pub const fn q3_debug_fire_weapon(amount: i32) -> Option<u8> {
-    let weapon = amount - DEBUG_DAMAGE_Q3_FIRE_BASE;
+    let weapon = amount as i64 - DEBUG_DAMAGE_Q3_FIRE_BASE as i64;
     if weapon >= 1 && weapon <= 9 {
         Some(weapon as u8)
     } else {
