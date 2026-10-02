@@ -74,4 +74,8 @@ impl Pk3Archive {
         let wanted = name.replace('\\', "/").to_ascii_lowercase();
         self.names.iter().any(|entry| entry == &wanted)
     }
+
+    pub fn names(&self) -> &[String] {
+        &self.names
+    }
 }
