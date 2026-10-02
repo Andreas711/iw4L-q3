@@ -128,6 +128,7 @@ pub use spawn::{
     spawn_candidate_indices, spawn_candidate_indices_for,
 };
 pub use step::phase_materialize_entity_dobjs;
+pub use weapon_q3::Quake3Weapon;
 pub use world::{
     ClientId, HitvolDumpRow, PendingLocalSound, PendingPlayerCardEvent, PendingPlayerCardKind,
     PendingPrint, PlayerKitCollision, SimBrush, SimClipBsp, SimClipCmodels, SimClipMesh,
