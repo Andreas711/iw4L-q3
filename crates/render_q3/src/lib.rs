@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bevy::{
     asset::RenderAssetUsages,
+    camera::visibility::NoFrustumCulling,
     mesh::{Indices, PrimitiveTopology},
     prelude::*,
 };
@@ -9,7 +10,8 @@ use net::{FrameClock, LocalPresentClient, PresentedSnapshot};
 
 pub struct RenderQ3Plugin;
 
-const Q3_MODEL_SCALE: f32 = 0.025;
+const Q3_VIEW_TARGET_RADIUS: f32 = 1.45;
+const Q3_VIEW_DEPTH_PAD: f32 = 3.75;
 
 #[derive(Component)]
 struct Q3ViewRoot;
@@ -67,7 +69,7 @@ impl Plugin for RenderQ3Plugin {
 
 fn ensure_q3_view_root(
     mut commands: Commands,
-    world_camera: Query<Entity, With<render_scene::FlyCamera>>,
+    world_camera: Query<Entity, With<render_scene::FpvLens>>,
     roots: Query<Entity, With<Q3ViewRoot>>,
 ) {
     if !roots.is_empty() {
@@ -77,9 +79,9 @@ fn ensure_q3_view_root(
         return;
     };
 
-    // Q3 presentation shares the engine's existing world camera/render target.
-    // It does not create a second Camera3d, so IW4 render nodes only execute
-    // once and keep their native target format.
+    // Q3 presentation shares the engine's existing FpvLens camera/render
+    // target. Parenting directly to the lens makes the root transform camera-
+    // local without creating a second Camera3d.
     let root = commands
         .spawn((
             Q3ViewRoot,
@@ -140,19 +142,27 @@ fn normalise(v: [f32; 3]) -> [f32; 3] {
     }
 }
 
-fn q3_to_camera(v: [f32; 3]) -> [f32; 3] {
+fn q3_model_scale(model: &asset_q3::Q3WeaponModel) -> f32 {
+    let radius = model
+        .model
+        .frames
+        .first()
+        .map(|frame| frame.radius.abs())
+        .filter(|radius| *radius > 1.0e-3)
+        .unwrap_or(32.0);
+    Q3_VIEW_TARGET_RADIUS / radius
+}
+
+fn q3_to_camera(v: [f32; 3], scale: f32) -> [f32; 3] {
     // Q3: +X forward, +Y left, +Z up.
     // Bevy camera local: +X right, +Y up, -Z forward.
-    [
-        -v[1] * Q3_MODEL_SCALE,
-        v[2] * Q3_MODEL_SCALE,
-        -v[0] * Q3_MODEL_SCALE,
-    ]
+    [-v[1] * scale, v[2] * scale, -v[0] * scale]
 }
 
 fn q3_surface_mesh(
     surface: &asset_q3::Md3Surface,
     tag: Option<&asset_q3::Md3Tag>,
+    scale: f32,
 ) -> Option<Mesh> {
     let vertices = surface.frames.first()?;
     if vertices.len() != surface.texcoords.len() {
@@ -161,11 +171,11 @@ fn q3_surface_mesh(
 
     let positions: Vec<[f32; 3]> = vertices
         .iter()
-        .map(|vertex| q3_to_camera(q3_tag_point(tag, vertex.position)))
+        .map(|vertex| q3_to_camera(q3_tag_point(tag, vertex.position), scale))
         .collect();
     let normals: Vec<[f32; 3]> = vertices
         .iter()
-        .map(|vertex| q3_to_camera(q3_tag_vector(tag, vertex.normal)))
+        .map(|vertex| q3_to_camera(q3_tag_vector(tag, vertex.normal), 1.0))
         .map(normalise)
         .collect();
     let uvs: Vec<[f32; 2]> = surface
@@ -202,9 +212,10 @@ fn rebuild_weapon(
     commands.entity(root).despawn_children();
 
     let tag = q3_tag_weapon(model);
+    let scale = q3_model_scale(model);
     let mut children = Vec::new();
     for (surface_index, surface) in model.model.surfaces.iter().enumerate() {
-        let Some(mesh) = q3_surface_mesh(surface, tag) else {
+        let Some(mesh) = q3_surface_mesh(surface, tag, scale) else {
             continue;
         };
         let image = q3_assets
@@ -214,6 +225,9 @@ fn rebuild_weapon(
             base_color: Color::WHITE,
             base_color_texture: image,
             unlit: true,
+            // IW4L draws its exact world after Bevy's opaque pass. Queue Q3
+            // viewmodels in Transparent3d so they are composited afterwards.
+            alpha_mode: AlphaMode::Blend,
             cull_mode: None,
             fog_enabled: false,
             ..default()
@@ -224,6 +238,7 @@ fn rebuild_weapon(
                 Mesh3d(meshes.add(mesh)),
                 MeshMaterial3d(material),
                 Transform::default(),
+                NoFrustumCulling,
             ))
             .id();
         children.push(entity);
@@ -238,6 +253,7 @@ fn sync_q3_view_model(
     local: Res<LocalPresentClient>,
     clock: Res<FrameClock>,
     mut state: ResMut<Q3ViewState>,
+    lenses: Query<&Projection, With<render_scene::FpvLens>>,
     mut roots: Query<(Entity, &mut Transform, &mut Visibility), With<Q3ViewRoot>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -302,10 +318,20 @@ fn sync_q3_view_model(
     let raise_t = ((now - state.switch_started_ms) as f32 / 250.0).clamp(0.0, 1.0);
     let lower = (1.0 - raise_t) * 0.22;
 
+    let near = lenses
+        .single()
+        .ok()
+        .and_then(|projection| match projection {
+            Projection::Perspective(perspective) => Some(perspective.near),
+            _ => None,
+        })
+        .unwrap_or(2.0);
+    let depth = near + Q3_VIEW_DEPTH_PAD;
+
     root_transform.translation = Vec3::new(
-        0.13 + bob_x,
-        -0.18 - lower + bob_y,
-        -0.38 + state.recoil * 0.06,
+        0.95 + bob_x,
+        -0.72 - lower + bob_y,
+        -depth + state.recoil * 0.22,
     );
     root_transform.rotation = Quat::from_rotation_x(state.recoil * 0.06);
     *root_visibility = Visibility::Visible;
@@ -511,8 +537,9 @@ mod tests {
 
     #[test]
     fn q3_axes_map_forward_to_camera_forward() {
-        assert_eq!(q3_to_camera([1.0, 0.0, 0.0]), [0.0, 0.0, -Q3_MODEL_SCALE]);
-        assert_eq!(q3_to_camera([0.0, 1.0, 0.0]), [-Q3_MODEL_SCALE, 0.0, 0.0]);
-        assert_eq!(q3_to_camera([0.0, 0.0, 1.0]), [0.0, Q3_MODEL_SCALE, 0.0]);
+        let scale = 0.25;
+        assert_eq!(q3_to_camera([1.0, 0.0, 0.0], scale), [0.0, 0.0, -scale]);
+        assert_eq!(q3_to_camera([0.0, 1.0, 0.0], scale), [-scale, 0.0, 0.0]);
+        assert_eq!(q3_to_camera([0.0, 0.0, 1.0], scale), [0.0, scale, 0.0]);
     }
 }
