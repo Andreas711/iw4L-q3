@@ -263,6 +263,7 @@ fn encode_projectile(out: &mut WireWriter, projectile: &ProjectileState) {
     out.put_u32(projectile.owner.0);
     out.put_u32(projectile.owner_life.0);
     out.put_u32(projectile.weapon);
+    out.put_u8(projectile.q3_weapon.map_or(0, |weapon| weapon as u8));
     for value in projectile.origin {
         out.put_f32(value);
     }
@@ -323,6 +324,17 @@ fn decode_projectile(input: &mut WireReader<'_>) -> Result<ProjectileState, Wire
         owner: ClientId(input.get_u32()?),
         owner_life: sim::LifeSequence(input.get_u32()?),
         weapon: input.get_u32()?,
+        q3_weapon: {
+            let raw = input.get_u8()?;
+            if raw == 0 {
+                None
+            } else {
+                Some(
+                    sim::Quake3Weapon::from_id(raw)
+                        .ok_or(WireError::Malformed("invalid Q3 projectile weapon id"))?,
+                )
+            }
+        },
         origin: [input.get_f32()?, input.get_f32()?, input.get_f32()?],
         velocity: [input.get_f32()?, input.get_f32()?, input.get_f32()?],
         spawn_time_ms: input.get_i32()?,
