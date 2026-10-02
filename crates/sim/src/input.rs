@@ -34,6 +34,28 @@ pub const fn q3_debug_fire_weapon(amount: i32) -> Option<u8> {
 /// Compatibility name for the first Railgun-only test command.
 pub const DEBUG_DAMAGE_Q3_RAILGUN: i32 = DEBUG_DAMAGE_Q3_FIRE_BASE + 7;
 
+const DEBUG_DAMAGE_Q3_SELECT_BASE: i32 = i32::MIN + 0x5200;
+
+#[must_use]
+pub const fn q3_debug_select_amount(weapon: u8) -> Option<i32> {
+    if weapon <= 9 {
+        Some(DEBUG_DAMAGE_Q3_SELECT_BASE + weapon as i32)
+    } else {
+        None
+    }
+}
+
+#[must_use]
+pub const fn q3_debug_select_weapon(amount: i32) -> Option<u8> {
+    let weapon = amount as i64 - DEBUG_DAMAGE_Q3_SELECT_BASE as i64;
+    if weapon >= 0 && weapon <= 9 {
+        Some(weapon as u8)
+    } else {
+        None
+    }
+}
+
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ClientAction {
     JoinMatch {
