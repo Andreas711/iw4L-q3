@@ -146,6 +146,10 @@ pub(crate) fn fire_q3_projectile_debug(
             .filter(|&weapon| weapon > 0)
             .map(|weapon| weapon as u32)
             .find(|&weapon| is_projectile_carrier(weapon))
+            .or_else(|| {
+                (1..world.weapon_combat_len() as u32)
+                    .find(|&weapon| is_projectile_carrier(weapon))
+            })
     };
     let Some(carrier) = carrier else {
         diag::warn!(Sim, "q3 projectile needs an owned IW4 projectile weapon as presentation carrier");
