@@ -157,6 +157,53 @@ pub(crate) fn route_debug_feature_commands(
                     console,
                     line,
                 );
+
+                if let Some(arg) = cmd.args.first().map(String::as_str) {
+                    let weapon = match arg {
+                        "gauntlet" | "melee" => Some(weapon_q3::Quake3Weapon::Gauntlet),
+                        "machinegun" | "mg" => Some(weapon_q3::Quake3Weapon::Machinegun),
+                        "shotgun" | "sg" => Some(weapon_q3::Quake3Weapon::Shotgun),
+                        "grenade" | "gl" | "grenadelauncher" => {
+                            Some(weapon_q3::Quake3Weapon::GrenadeLauncher)
+                        }
+                        "rocket" | "rl" | "rocketlauncher" => {
+                            Some(weapon_q3::Quake3Weapon::RocketLauncher)
+                        }
+                        "lightning" | "lg" => Some(weapon_q3::Quake3Weapon::LightningGun),
+                        "railgun" | "rail" | "rg" => Some(weapon_q3::Quake3Weapon::Railgun),
+                        "plasma" | "pg" | "plasmagun" => Some(weapon_q3::Quake3Weapon::PlasmaGun),
+                        "bfg" => Some(weapon_q3::Quake3Weapon::Bfg),
+                        _ => None,
+                    };
+                    if let Some(weapon) = weapon
+                        && let Some(model) = q3_assets.assets.model(weapon)
+                    {
+                        for (index, surface) in model.model.surfaces.iter().enumerate() {
+                            let shader = surface
+                                .shaders
+                                .first()
+                                .map(String::as_str)
+                                .unwrap_or("<none>");
+                            let texture = model
+                                .surface_textures
+                                .get(index)
+                                .and_then(|texture| texture.as_ref())
+                                .map(|texture| texture.path.as_str())
+                                .unwrap_or("<unresolved>");
+                            echo(
+                                format!(
+                                    "q3assets: {} surface#{index} {} shader={} texture={}",
+                                    weapon.name(),
+                                    surface.name,
+                                    shader,
+                                    texture
+                                ),
+                                console,
+                                line,
+                            );
+                        }
+                    }
+                }
             }
             "q3give" => {
                 let ids: Vec<u8> = match cmd.args.first().map(String::as_str) {
