@@ -2,7 +2,6 @@ use crate::combat::{AcceptedShot, spread_direction_on_plane};
 use crate::equipment::{GrenadeLaunchKind, ProjectileState, spawn_grenade_projectile};
 use crate::frame::FrameWorld;
 use crate::identities::MatchRng;
-use crate::match_state::EventAudience;
 use entity_iw4::{
     TR_LINEAR, Trajectory, fire_grenade_no_draw_ms, fire_missile_apos, truncated_tr_delta,
 };
