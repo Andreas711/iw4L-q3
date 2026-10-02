@@ -1276,6 +1276,19 @@ fn encode_client_meta(out: &mut WireWriter, meta: &ClientSnapshotMeta) {
         out.put_i32(*clip);
         out.put_i32(*stock);
     }
+    match meta.q3_weapon {
+        None => out.put_u8(0),
+        Some(q3) => {
+            out.put_u8(1);
+            out.put_u8(q3.active.into());
+            out.put_u8(q3.weapon as u8);
+            out.put_i32(q3.next_fire_time_ms);
+            out.put_u16(q3.owned_mask);
+            for ammo in q3.ammo {
+                out.put_u16(ammo as u16);
+            }
+        }
+    }
     debug_assert!(meta.taped_mag_spent.len() <= u8::MAX as usize);
     out.put_u8(meta.taped_mag_spent.len() as u8);
     for weapon in &meta.taped_mag_spent {
@@ -1475,6 +1488,34 @@ fn decode_client_meta(input: &mut WireReader<'_>) -> Result<ClientSnapshotMeta, 
         let stock = input.get_i32()?;
         ammo_by_weapon.push((weapon, clip, stock));
     }
+    let q3_weapon = match input.get_u8()? {
+        0 => None,
+        1 => {
+            let active = input.get_u8()? != 0;
+            let weapon = sim::Quake3Weapon::from_id(input.get_u8()?)
+                .ok_or(WireError::Malformed("bad Q3 selected weapon"))?;
+            let next_fire_time_ms = input.get_i32()?;
+            let owned_mask = input.get_u16()?;
+            if owned_mask & !0x03FE != 0 {
+                return Err(WireError::Malformed("bad Q3 owned weapon mask"));
+            }
+            let mut ammo = [0i16; 10];
+            for slot in &mut ammo {
+                *slot = input.get_u16()? as i16;
+                if *slot < -1 || *slot > 200 {
+                    return Err(WireError::Malformed("bad Q3 ammo value"));
+                }
+            }
+            Some(sim::Q3WeaponSnapshot {
+                active,
+                weapon,
+                next_fire_time_ms,
+                owned_mask,
+                ammo,
+            })
+        }
+        _ => return Err(WireError::Malformed("bad Q3 weapon snapshot tag")),
+    };
     let spent_rows = input.get_u8()? as usize;
     let mut taped_mag_spent = Vec::with_capacity(spent_rows);
     for _ in 0..spent_rows {
@@ -1631,6 +1672,7 @@ fn decode_client_meta(input: &mut WireReader<'_>) -> Result<ClientSnapshotMeta, 
         radar,
         remote_missile,
         ammo_by_weapon,
+        q3_weapon,
         taped_mag_spent,
         weapon_shot_count,
         burst_latch,
