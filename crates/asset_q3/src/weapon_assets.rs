@@ -278,27 +278,48 @@ fn read_q3_texture_resolved(
     })
 }
 
-fn read_q3_texture(pk3: &mut Pk3Archive, shader: &str) -> Option<Q3Texture> {
+fn q3_texture_candidates(shader: &str) -> Vec<String> {
     let normalised = shader.replace('\\', "/");
-    let has_extension = Path::new(&normalised).extension().is_some();
-    let mut candidates = Vec::with_capacity(4);
-    if has_extension {
-        candidates.push(normalised.clone());
-    } else {
-        candidates.push(format!("{normalised}.tga"));
-        candidates.push(format!("{normalised}.jpg"));
-        candidates.push(format!("{normalised}.jpeg"));
-        candidates.push(format!("{normalised}.png"));
-    }
+    let path = Path::new(&normalised);
+    let mut out = Vec::with_capacity(5);
 
-    for path in candidates {
-        let format = image_format(&path)?;
+    // Quake III's renderer treats image extensions as hints. A shader commonly
+    // says ".tga" even when the PK3 only contains the equivalent ".jpg".
+    // Preserve the authored spelling first, then search the supported sibling
+    // extensions by stem.
+    if path.extension().is_some() {
+        out.push(normalised.clone());
+        let stem = path.with_extension("").to_string_lossy().replace('\\', "/");
+        for ext in ["tga", "jpg", "jpeg", "png"] {
+            let candidate = format!("{stem}.{ext}");
+            if !out.iter().any(|existing| existing.eq_ignore_ascii_case(&candidate)) {
+                out.push(candidate);
+            }
+        }
+    } else {
+        for ext in ["tga", "jpg", "jpeg", "png"] {
+            out.push(format!("{normalised}.{ext}"));
+        }
+    }
+    out
+}
+
+fn read_q3_texture(pk3: &mut Pk3Archive, shader: &str) -> Option<Q3Texture> {
+    for path in q3_texture_candidates(shader) {
+        let Some(format) = image_format(&path) else {
+            continue;
+        };
         let bytes = match pk3.read(&path) {
             Ok(bytes) => bytes,
             Err(Pk3Error::Missing(_)) => continue,
             Err(_) => return None,
         };
-        let decoded = image::load_from_memory_with_format(&bytes, format).ok()?;
+
+        // Do not let one bad candidate abort extension fallback. Q3 data often
+        // uses a canonical .tga reference while the actual asset is JPEG.
+        let Ok(decoded) = image::load_from_memory_with_format(&bytes, format) else {
+            continue;
+        };
         let rgba = decoded.to_rgba8();
         let (width, height) = rgba.dimensions();
         return Some(Q3Texture {
@@ -409,5 +430,31 @@ mod tests {
             let weapon = Quake3Weapon::from_id(id).unwrap();
             assert!(weapon_asset_spec(weapon).model.ends_with(".md3"));
         }
+    }
+
+    #[test]
+    fn q3_texture_extension_fallback_matches_renderer_convention() {
+        assert_eq!(
+            q3_texture_candidates("models/weapons2/shotgun/shotgun.tga"),
+            vec![
+                "models/weapons2/shotgun/shotgun.tga",
+                "models/weapons2/shotgun/shotgun.jpg",
+                "models/weapons2/shotgun/shotgun.jpeg",
+                "models/weapons2/shotgun/shotgun.png",
+            ]
+        );
+    }
+
+    #[test]
+    fn q3_texture_without_extension_checks_all_supported_formats() {
+        assert_eq!(
+            q3_texture_candidates("models/weapons2/rocketl/rocketl"),
+            vec![
+                "models/weapons2/rocketl/rocketl.tga",
+                "models/weapons2/rocketl/rocketl.jpg",
+                "models/weapons2/rocketl/rocketl.jpeg",
+                "models/weapons2/rocketl/rocketl.png",
+            ]
+        );
     }
 }
