@@ -1170,6 +1170,7 @@ pub fn register_fpv_present_systems(app: &mut App) {
         .init_resource::<ViewweaponAim>()
         .init_resource::<PendingViewHurt>()
         .init_resource::<crate::occupancy::q3_fpv::Q3FpvMotion>()
+        .init_resource::<crate::occupancy::q3_fpv::Q3FpvTextureSwap>()
         .init_resource::<FpvStatusGap>()
         .init_resource::<RenderPresentationGaps>()
         .add_systems(
