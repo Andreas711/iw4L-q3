@@ -138,11 +138,15 @@ pub(crate) fn route_debug_feature_commands(
                     match cmd.args.first().map(String::as_str) {
                         Some("machinegun" | "mg") => 2,
                         Some("shotgun" | "sg") => 3,
+                        Some("grenade" | "gl" | "grenadelauncher") => 4,
+                        Some("rocket" | "rl" | "rocketlauncher") => 5,
                         Some("lightning" | "lg") => 6,
                         Some("railgun" | "rail" | "rg") => 7,
+                        Some("plasma" | "pg" | "plasmagun") => 8,
+                        Some("bfg") => 9,
                         Some(other) => {
                             echo(
-                                format!("q3fire: `{other}` is not live yet; use machinegun|shotgun|lightning|railgun"),
+                                format!("q3fire: `{other}` is not live yet; use machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg"),
                                 console,
                                 line,
                             );
@@ -150,7 +154,7 @@ pub(crate) fn route_debug_feature_commands(
                         }
                         None => {
                             echo(
-                                "usage: q3fire machinegun|shotgun|lightning|railgun".into(),
+                                "usage: q3fire machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg".into(),
                                 console,
                                 line,
                             );
@@ -324,7 +328,7 @@ pub fn register_feature_commands(registry: &mut crate::ConsoleRegistry, maps: &[
         ),
         (
             "q3fire",
-            "q3fire machinegun|shotgun|lightning|railgun — fire a live Quake III hitscan weapon",
+            "q3fire machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg — fire a live Quake III weapon",
         ),
         ("hurt", "hurt — stamp one undirected damage-feedback punch"),
         (
