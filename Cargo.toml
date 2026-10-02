@@ -16,6 +16,7 @@ members = [
     "crates/asset_iw4",
     "crates/asset_material",
     "crates/asset_model",
+    "crates/asset_q3",
     "crates/asset_transport",
     "crates/asset_world",
     "crates/assets",
@@ -119,6 +120,7 @@ asset_game = { path = "crates/asset_game" }
 asset_transport = { path = "crates/asset_transport" }
 asset_material = { path = "crates/asset_material" }
 asset_model = { path = "crates/asset_model" }
+asset_q3 = { path = "crates/asset_q3" }
 asset_world = { path = "crates/asset_world" }
 assets = { path = "crates/assets" }
 audio = { path = "crates/audio" }
