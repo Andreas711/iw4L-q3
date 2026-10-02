@@ -131,6 +131,64 @@ pub(crate) fn route_debug_feature_commands(
                     }
                 }
             },
+            "q3use" => {
+                let weapon = match cmd.args.first().map(String::as_str) {
+                    Some("off" | "none" | "iw4") => 0,
+                    Some("machinegun" | "mg") => 2,
+                    Some("shotgun" | "sg") => 3,
+                    Some("grenade" | "gl" | "grenadelauncher") => 4,
+                    Some("rocket" | "rl" | "rocketlauncher") => 5,
+                    Some("lightning" | "lg") => 6,
+                    Some("railgun" | "rail" | "rg") => 7,
+                    Some("plasma" | "pg" | "plasmagun") => 8,
+                    Some("bfg") => 9,
+                    Some(other) => {
+                        echo(
+                            format!("q3use: unknown or not-yet-live weapon `{other}`"),
+                            console,
+                            line,
+                        );
+                        continue;
+                    }
+                    None => {
+                        echo(
+                            "usage: q3use machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg|off".into(),
+                            console,
+                            line,
+                        );
+                        continue;
+                    }
+                };
+                let Some(inbox) = inbox.as_mut() else {
+                    echo("q3use: no action inbox".into(), console, line);
+                    continue;
+                };
+                let Some(local) = local.as_ref() else {
+                    echo("q3use: no local player".into(), console, line);
+                    continue;
+                };
+                let Some(amount) = sim::q3_debug_select_amount(weapon) else {
+                    echo("q3use: invalid weapon id".into(), console, line);
+                    continue;
+                };
+                let request_id = give_seq.allocate();
+                if let Err(error) = inbox.push(
+                    local.0,
+                    ClientAction::DebugDamage { request_id, amount },
+                ) {
+                    echo(format!("q3use: {error}"), console, line);
+                    continue;
+                }
+                echo(
+                    if weapon == 0 {
+                        "q3use: queued return to IW4 weapon handling".into()
+                    } else {
+                        format!("q3use: queued Q3 weapon={weapon}; left click now fires it")
+                    },
+                    console,
+                    line,
+                );
+            }
             "q3rail" | "q3fire" => {
                 let weapon = if cmd.name == "q3rail" {
                     7u8
@@ -321,6 +379,10 @@ pub fn register_feature_commands(registry: &mut crate::ConsoleRegistry, maps: &[
         (
             "menu",
             "menu [open <screen> | nav up|down | accept | back | dump] — shell surface; back/device remain typed gaps (S2/S4)",
+        ),
+        (
+            "q3use",
+            "q3use machinegun|shotgun|grenade|rocket|lightning|railgun|plasma|bfg|off — select a Q3 weapon for normal left-click firing",
         ),
         (
             "q3rail",
