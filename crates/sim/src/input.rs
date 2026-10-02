@@ -8,10 +8,31 @@ pub struct ClassId(pub u32);
 
 pub type ActionRequestId = u32;
 
-/// Debug-action sentinel used by the first live Quake III Railgun integration.
-/// Negative DebugDamage values were previously refused, so this does not overlap
+/// Debug-action range used by the live Quake III weapon integration.
+/// Negative DebugDamage values were previously refused, so these do not overlap
 /// with the normal `damage` debug action.
-pub const DEBUG_DAMAGE_Q3_RAILGUN: i32 = i32::MIN + 0x5133;
+const DEBUG_DAMAGE_Q3_FIRE_BASE: i32 = i32::MIN + 0x5100;
+
+#[must_use]
+pub const fn q3_debug_fire_amount(weapon: u8) -> Option<i32> {
+    match weapon {
+        1..=9 => Some(DEBUG_DAMAGE_Q3_FIRE_BASE + weapon as i32),
+        _ => None,
+    }
+}
+
+#[must_use]
+pub const fn q3_debug_fire_weapon(amount: i32) -> Option<u8> {
+    let weapon = amount - DEBUG_DAMAGE_Q3_FIRE_BASE;
+    if weapon >= 1 && weapon <= 9 {
+        Some(weapon as u8)
+    } else {
+        None
+    }
+}
+
+/// Compatibility name for the first Railgun-only test command.
+pub const DEBUG_DAMAGE_Q3_RAILGUN: i32 = DEBUG_DAMAGE_Q3_FIRE_BASE + 7;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ClientAction {
