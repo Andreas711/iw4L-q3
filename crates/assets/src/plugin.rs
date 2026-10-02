@@ -56,8 +56,33 @@ fn load_q3_weapon_models(
                     });
                 }
             }
+            let mut projectile_textures = Vec::new();
+            for projectile in &assets.projectiles {
+                for (surface, texture) in projectile.surface_textures.iter().enumerate() {
+                    let Some(texture) = texture else {
+                        continue;
+                    };
+                    let image = Image::new(
+                        Extent3d {
+                            width: texture.width,
+                            height: texture.height,
+                            depth_or_array_layers: 1,
+                        },
+                        TextureDimension::D2,
+                        texture.rgba.clone(),
+                        TextureFormat::Rgba8UnormSrgb,
+                        RenderAssetUsages::default(),
+                    );
+                    projectile_textures.push(crate::prepared::Q3ProjectileTextureHandle {
+                        weapon: projectile.weapon as u8,
+                        surface,
+                        image: images.add(image),
+                    });
+                }
+            }
             prepared.assets = std::sync::Arc::new(assets);
             prepared.textures = textures;
+            prepared.projectile_textures = projectile_textures;
             prepared.error = None;
         }
         Err(error) => {
