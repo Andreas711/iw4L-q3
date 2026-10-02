@@ -1038,6 +1038,100 @@ pub fn spread_direction_on_plane(
     }
 }
 
+/// Fire one Quake III Railgun shot through IW4L's authoritative trace/damage path.
+///
+/// This is the first live integration milestone. The currently held (or first owned)
+/// IW4 bullet weapon is used only as an impact/penetration presentation carrier;
+/// Quake III supplies the shot's damage, range and zero-spread direction.
+pub(crate) fn fire_q3_railgun_debug(
+    world: &mut FrameWorld,
+    tick: Tick,
+    id: ClientId,
+) -> bool {
+    if !world.bootstrap_ref().allow_debug_actions
+        || !world
+            .client_meta(id)
+            .is_some_and(|m| m.lifecycle == ClientLifecycle::Alive)
+    {
+        return false;
+    }
+
+    let Some(ps) = world.player(id).copied() else {
+        return false;
+    };
+
+    let is_bullet = |weapon: u32| {
+        weapon != 0
+            && world
+                .combat_facts_for(weapon)
+                .is_some_and(|facts| {
+                    matches!(
+                        fire_weapon_kind(facts.weap_type, facts.weap_class),
+                        Some(FireWeaponKind::Bullet)
+                    )
+                })
+    };
+    let carrier = if is_bullet(ps.weapon) {
+        Some(ps.weapon)
+    } else {
+        ps.weapons
+            .iter()
+            .copied()
+            .filter(|&weapon| weapon > 0)
+            .map(|weapon| weapon as u32)
+            .find(|&weapon| is_bullet(weapon))
+    };
+    let Some(weapon) = carrier else {
+        return false;
+    };
+
+    let shot_id = world.alloc_shot_id();
+    let combat_seed = world.combat_rng_mut().next_u32();
+    let life = world
+        .client_meta(id)
+        .map(|m| m.life_sequence)
+        .unwrap_or_default();
+    let origin = [
+        ps.origin[0],
+        ps.origin[1],
+        ps.origin[2] + ps.view_height_current,
+    ];
+    let direction = math_iw4::angle_vectors(ps.viewangles).0;
+
+    world.push_entity_event(
+        tick,
+        EventAudience::All,
+        entity_iw4::predicted_weapon_fire_event(0, false),
+        crate::EntityEventPayload {
+            number: id.0 as i32,
+            weapon,
+            correlation: shot_id.0,
+            origin,
+            direction: ps.viewangles,
+            ..Default::default()
+        },
+    );
+    world
+        .weapon_notes
+        .push(crate::equipment::WeaponNote::Fired { owner: id });
+
+    let emission = Emission {
+        combat_seed,
+        shot_id,
+        pellet: PelletId(0),
+        attacker: id,
+        attacker_life: life,
+        hand: 0,
+        weapon,
+        origin,
+        direction,
+        max_range: weapon_q3::railgun::RAILGUN_RANGE,
+        base_damage: weapon_q3::railgun::RAILGUN_DAMAGE,
+    };
+    let _ = phase_trace(world, tick, core::slice::from_ref(&emission));
+    true
+}
+
 pub(crate) fn phase_emit(world: &FrameWorld, shots: &[AcceptedShot]) -> Vec<Emission> {
     let mut out = Vec::new();
     for shot in shots {
@@ -1123,7 +1217,12 @@ pub(crate) fn phase_trace(
                 let dz = end[2] - em.origin[2];
                 (dx * dx + dy * dy + dz * dz).sqrt()
             };
-            let scaled = bullet_damage_at_distance(&facts, dist).max(0) as u32;
+            let base = if em.base_damage == facts.damage {
+                bullet_damage_at_distance(&facts, dist)
+            } else {
+                em.base_damage
+            };
+            let scaled = base.max(0) as u32;
             let mut map = glass_damage.borrow_mut();
             let cur = map.entry(pane).or_insert(0);
             *cur = glass_add_damage(*cur, scaled);
@@ -1239,8 +1338,12 @@ pub(crate) fn phase_trace(
                 let dz = segment.end[2] - em.origin[2];
                 (dx * dx + dy * dy + dz * dz).sqrt()
             };
-            let scaled =
-                ((bullet_damage_at_distance(&facts, dist) as f32) * segment.damage_mult) as i32;
+            let base = if em.base_damage == facts.damage {
+                bullet_damage_at_distance(&facts, dist)
+            } else {
+                em.base_damage
+            };
+            let scaled = ((base as f32) * segment.damage_mult) as i32;
             if !exit && world.publishes_snapshot() {
                 let means = crate::script_player::means(
                     world,
