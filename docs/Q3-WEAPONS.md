@@ -32,26 +32,28 @@ death handling, replay and networking. `weapon_q3` supplies the Q3 rules.
 
 ## Live developer controls
 
-The live runtime now keeps a separate Q3 weapon inventory and ammo pool per client.
-
-A fresh Q3 inventory mirrors base Quake III spawn rules: Gauntlet plus Machinegun, with unlimited
-Gauntlet ammo and 100 Machinegun rounds. Other weapons must be granted before they can be selected.
+The live runtime keeps a separate Q3 weapon inventory and ammo pool per client, but weapon
+selection now uses the normal `give` command.
 
 ```
-q3give rocket
-q3use rocket
+give shotgun
+give rocket
+give railgun
 ```
 
-`q3give <weapon>` applies the original weapon-pickup quantity from `bg_misc.c`. Ammo is capped at
-200, matching `Add_Ammo` in `g_items.c`. `q3give all` is available for development testing.
+Giving a Q3 weapon grants its original Quake III weapon-pickup ammo quantity and immediately puts
+that weapon in the player's hands. Repeating `give <q3 weapon>` grants the pickup ammo again and
+switches back to it.
 
-`q3use <weapon>` selects an owned Q3 weapon and routes normal `+attack` input through the Q3
-fire cadence. Each successful shot consumes one Q3 ammo unit except Gauntlet, which is unlimited.
-`q3use off` returns attack handling to the normal IW4 weapon runtime while preserving the Q3
-inventory for later reselection.
+Q3 aliases are accepted directly, including `gauntlet`, `machinegun`, `shotgun`, `grenade`,
+`rocket`, `lightning`, `railgun`, `plasma`, and `bfg`. The explicit forms
+`give q3/<weapon>` and `give q3:<weapon>` are also accepted.
 
-`q3fire <weapon>` remains a direct one-shot debug path and intentionally bypasses inventory/ammo
-for isolated combat testing.
+The old `q3give` and `q3use` commands have been removed. To return to an IW weapon, use the
+normal IW give syntax, for example `give weapon/<game:weapon>`; doing so disables Q3 weapon
+handling before equipping the IW weapon.
+
+`q3fire <weapon>` remains a direct one-shot debug path for isolated combat testing.
 
 
 ## Q3 damage movement semantics
