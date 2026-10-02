@@ -1,8 +1,16 @@
-use crate::FireGate;
+use crate::{FireGate, spec::HitscanSpec};
 
 pub const RAILGUN_DAMAGE: i32 = 100;
 pub const RAILGUN_RANGE: f32 = 8192.0;
 pub const RAILGUN_REFIRE_MS: i32 = 1500;
+
+pub const RAILGUN: HitscanSpec = HitscanSpec {
+    damage: RAILGUN_DAMAGE,
+    range: RAILGUN_RANGE,
+    refire_ms: RAILGUN_REFIRE_MS,
+    pellets: 1,
+    spread: 0.0,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RailgunState {
