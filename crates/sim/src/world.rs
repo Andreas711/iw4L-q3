@@ -1356,6 +1356,52 @@ impl SimState {
             .filter(|facts| facts.projectile_speed > 0)
     }
 
+    pub(crate) fn q3_projectile_presentation_carrier(
+        &self,
+        q3_weapon: weapon_q3::Quake3Weapon,
+    ) -> Option<u32> {
+        let preferred: &[&str] = match q3_weapon {
+            weapon_q3::Quake3Weapon::GrenadeLauncher => &["m203", "gl_", "grenade"],
+            weapon_q3::Quake3Weapon::RocketLauncher => &["rpg", "at4", "javelin", "stinger"],
+            weapon_q3::Quake3Weapon::PlasmaGun | weapon_q3::Quake3Weapon::Bfg => {
+                &["rpg", "at4", "javelin", "stinger"]
+            }
+            _ => &[],
+        };
+
+        preferred
+            .iter()
+            .find_map(|needle| {
+                self.content
+                    .data
+                    .weapon_script_names
+                    .iter()
+                    .enumerate()
+                    .skip(1)
+                    .find_map(|(index, name)| {
+                        let lower = name.to_ascii_lowercase();
+                        (lower.contains(needle)
+                            && self
+                                .content
+                                .data
+                                .equipment_runtime
+                                .get(index)
+                                .is_some_and(|facts| facts.projectile_speed > 0))
+                        .then_some(index as u32)
+                    })
+            })
+            .or_else(|| {
+                self.content
+                    .data
+                    .equipment_runtime
+                    .iter()
+                    .enumerate()
+                    .skip(1)
+                    .find_map(|(index, facts)| (facts.projectile_speed > 0).then_some(index as u32))
+            })
+    }
+
+
     pub(crate) fn allocate_projectile_id(&mut self) -> ProjectileId {
         let id = self.next_projectile;
         self.next_projectile = ProjectileId(self.next_projectile.0.wrapping_add(1).max(1));
