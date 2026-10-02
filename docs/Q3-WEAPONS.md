@@ -28,3 +28,27 @@ independent implementation of the observable mechanics and numeric gameplay para
 
 Integration policy: IW4L remains authoritative for collision, lag compensation, snapshots, damage,
 death handling, replay and networking. `weapon_q3` supplies the Q3 rules.
+
+
+## Live developer controls
+
+The live runtime now keeps a separate Q3 weapon inventory and ammo pool per client.
+
+A fresh Q3 inventory mirrors base Quake III spawn rules: Gauntlet plus Machinegun, with unlimited
+Gauntlet ammo and 100 Machinegun rounds. Other weapons must be granted before they can be selected.
+
+```
+q3give rocket
+q3use rocket
+```
+
+`q3give <weapon>` applies the original weapon-pickup quantity from `bg_misc.c`. Ammo is capped at
+200, matching `Add_Ammo` in `g_items.c`. `q3give all` is available for development testing.
+
+`q3use <weapon>` selects an owned Q3 weapon and routes normal `+attack` input through the Q3
+fire cadence. Each successful shot consumes one Q3 ammo unit except Gauntlet, which is unlimited.
+`q3use off` returns attack handling to the normal IW4 weapon runtime while preserving the Q3
+inventory for later reselection.
+
+`q3fire <weapon>` remains a direct one-shot debug path and intentionally bypasses inventory/ammo
+for isolated combat testing.
