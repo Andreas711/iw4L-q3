@@ -116,7 +116,7 @@ pub(crate) fn magic_bullet(
     launched.ok_or_else(|| format!("weapon {weapon} launched no projectile"))
 }
 
-pub(crate) fn fire_q3_projectile_debug(
+pub(crate) fn fire_q3_projectile(
     world: &mut FrameWorld,
     tick: crate::Tick,
     owner: crate::ClientId,
@@ -132,11 +132,6 @@ pub(crate) fn fire_q3_projectile_debug(
     let Some(ps) = world.player(owner).copied() else {
         return false;
     };
-    let Some(carrier) = world.q3_projectile_presentation_carrier(q3_weapon) else {
-        diag::warn!(Sim, "q3 projectile has no loaded IW4 presentation carrier");
-        return false;
-    };
-
     let (mut direction, _, _) = math_iw4::angle_vectors(ps.viewangles);
     if matches!(q3_weapon, weapon_q3::Quake3Weapon::GrenadeLauncher) {
         direction[2] += weapon_q3::grenade::GRENADE_VERTICAL_BIAS;
@@ -174,29 +169,12 @@ pub(crate) fn fire_q3_projectile_debug(
         .map(|m| m.life_sequence)
         .unwrap_or_default();
     let shot_id = world.alloc_shot_id();
-    world.push_entity_event(
-        tick,
-        EventAudience::All,
-        entity_iw4::predicted_weapon_fire_event(0, false),
-        crate::EntityEventPayload {
-            number: owner.0 as i32,
-            weapon: carrier,
-            correlation: shot_id.0,
-            origin,
-            direction: ps.viewangles,
-            ..Default::default()
-        },
-    );
-    world
-        .weapon_notes
-        .push(crate::equipment::WeaponNote::Fired { owner });
-
     let deadline = now.saturating_add(spec.lifetime_ms.max(1));
     let projectile = ProjectileState {
         id,
         owner,
         owner_life: life,
-        weapon: carrier,
+        weapon: 0,
         q3_weapon: Some(q3_weapon),
         origin,
         velocity,
@@ -214,7 +192,7 @@ pub(crate) fn fire_q3_projectile_debug(
         guide: crate::MissileGuide::default(),
         attached_to: None,
     };
-    perf::projectile(carrier);
+    perf::projectile(q3_weapon as u32);
     world.push_projectile(projectile);
     true
 }
