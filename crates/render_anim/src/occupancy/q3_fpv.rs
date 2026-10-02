@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use net::{ClientSet, LocalPresentClient, PresentedSnapshot};
+use net::{LocalPresentClient, PresentedSnapshot};
 
 use crate::draw::{FpvDrawPlan, FpvSurfaceDraw};
 
@@ -138,7 +138,7 @@ pub(crate) fn override_q3_fpv(
     let Some(entry) = q3.assets.model(runtime.weapon) else {
         return;
     };
-    let Some(material) = plan.materials.first().cloned() else {
+    let Some(base_material) = plan.materials.first().cloned() else {
         return;
     };
 
@@ -146,8 +146,9 @@ pub(crate) fn override_q3_fpv(
     let mut packed = Vec::new();
     let mut indices = Vec::new();
     let mut ranges = Vec::new();
+    let mut materials = Vec::new();
 
-    for surface in &entry.model.surfaces {
+    for (surface_index, surface) in entry.model.surfaces.iter().enumerate() {
         let Some(vertices) = surface.frames.first() else {
             continue;
         };
@@ -174,6 +175,12 @@ pub(crate) fn override_q3_fpv(
         let count = indices.len() as u32 - start;
         if count > 0 {
             ranges.push((start, count));
+            let mut material = base_material.clone();
+            if let Some(image) = q3.texture(runtime.weapon, surface_index) {
+                material.color = Some(image.clone());
+                material.specular = None;
+            }
+            materials.push(material);
         }
     }
 
@@ -184,12 +191,11 @@ pub(crate) fn override_q3_fpv(
     plan.decoded_n = packed.len();
     plan.indices = indices;
     plan.surface_ranges = ranges;
-    plan.materials.clear();
-    plan.materials.push(material);
+    plan.materials = materials;
     plan.draws = (0..plan.surface_ranges.len())
         .map(|surface| FpvSurfaceDraw {
             surface: surface as u32,
-            material: 0,
+            material: surface as u32,
             is_scope: false,
         })
         .collect();
