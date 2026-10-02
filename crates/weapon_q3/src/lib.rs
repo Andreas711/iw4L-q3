@@ -17,6 +17,30 @@ pub mod rocket;
 pub mod shotgun;
 pub mod spec;
 
+pub const DEFAULT_KNOCKBACK: f32 = 1000.0;
+pub const PLAYER_MASS: f32 = 200.0;
+pub const MAX_KNOCKBACK_DAMAGE: i32 = 200;
+pub const SELF_DAMAGE_SCALE: f32 = 0.5;
+
+#[must_use]
+pub fn knockback_velocity_delta(direction: [f32; 3], damage: i32) -> [f32; 3] {
+    let len = (direction[0] * direction[0]
+        + direction[1] * direction[1]
+        + direction[2] * direction[2])
+        .sqrt();
+    if len <= f32::EPSILON || damage <= 0 {
+        return [0.0; 3];
+    }
+    let force = DEFAULT_KNOCKBACK * damage.min(MAX_KNOCKBACK_DAMAGE) as f32 / PLAYER_MASS;
+    direction.map(|v| v / len * force)
+}
+
+#[must_use]
+pub fn self_damage(damage: i32) -> i32 {
+    ((damage as f32) * SELF_DAMAGE_SCALE).max(1.0) as i32
+}
+
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Quake3Weapon {
