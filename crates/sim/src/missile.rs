@@ -168,7 +168,6 @@ pub(crate) fn fire_q3_projectile(
         .client_meta(owner)
         .map(|m| m.life_sequence)
         .unwrap_or_default();
-    let shot_id = world.alloc_shot_id();
     let deadline = now.saturating_add(spec.lifetime_ms.max(1));
     let projectile = ProjectileState {
         id,
