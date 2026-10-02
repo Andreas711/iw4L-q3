@@ -47,13 +47,20 @@ IW4 weapon. Q3 projectiles use `ProjectileState::q3_weapon`; their legacy
 `weapon` field is zero until the common projectile container is replaced by a
 native Q3 projectile container.
 
-## Transitional pieces
+## Presentation domain
 
-The current FPV renderer still borrows an IW4 material technique while the
-native Q3 material lane is being built. This is presentation-only and is not an
-acceptable final architecture. It must be replaced by a Q3 render lane that
-binds Q3 images directly without mutating or borrowing MW2 weapon material
-slots.
+`render_q3` is a separate first-person presentation lane. It owns a dedicated
+viewmodel camera/render layer, converts MD3 surfaces directly to Bevy meshes,
+and binds Q3 textures directly through Q3-owned materials. It does not mutate
+IW4 viewmodel geometry, borrow an MW2 weapon material, or hijack an MW2 texture
+slot.
+
+When a Q3 weapon is active, the IW4 first-person draw plan is simply left empty.
+The two presentation domains therefore do not share weapon models or materials.
+
+Projectile presentation is the next part of this same boundary: Rocket,
+Grenade, Plasma and BFG visuals should be submitted by `render_q3` from the
+Q3 projectile identity rather than from an IW4 weapon definition.
 
 The console `q3use` / `q3give` commands are development controls. Their
 transport mechanism is not part of Q3 gameplay semantics.
