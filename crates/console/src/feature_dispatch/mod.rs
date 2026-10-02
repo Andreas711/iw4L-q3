@@ -48,6 +48,7 @@ pub(crate) fn route_debug_feature_commands(
         Option<Res<BotRoster>>,
     ),
     (mut hurt, mut pending_splash): (ResMut<PendingViewHurt>, ResMut<PendingSplash>),
+    local: Option<Res<net::LocalPresentClient>>,
 ) {
     let (console, settings, line) = &mut output;
     let capacity = settings.log_capacity;
@@ -130,6 +131,32 @@ pub(crate) fn route_debug_feature_commands(
                     }
                 }
             },
+            "q3rail" => {
+                let Some(inbox) = inbox.as_mut() else {
+                    echo("q3rail: no action inbox".into(), console, line);
+                    continue;
+                };
+                let Some(local) = local.as_ref() else {
+                    echo("q3rail: no local player".into(), console, line);
+                    continue;
+                };
+                let request_id = give_seq.allocate();
+                if let Err(error) = inbox.push(
+                    local.0,
+                    ClientAction::DebugDamage {
+                        request_id,
+                        amount: sim::DEBUG_DAMAGE_Q3_RAILGUN,
+                    },
+                ) {
+                    echo(format!("q3rail: {error}"), console, line);
+                    continue;
+                }
+                echo(
+                    format!("q3rail: queued Railgun shot request_id={request_id}"),
+                    console,
+                    line,
+                );
+            }
             "hurt" => {
                 hurt.0 = hurt.0.saturating_add(1);
                 echo(
@@ -263,6 +290,10 @@ pub fn register_feature_commands(registry: &mut crate::ConsoleRegistry, maps: &[
         (
             "menu",
             "menu [open <screen> | nav up|down | accept | back | dump] — shell surface; back/device remain typed gaps (S2/S4)",
+        ),
+        (
+            "q3rail",
+            "q3rail — fire one Quake III Railgun test shot through the authority combat path",
         ),
         ("hurt", "hurt — stamp one undirected damage-feedback punch"),
         (
