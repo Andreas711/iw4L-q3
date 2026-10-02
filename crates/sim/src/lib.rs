@@ -90,8 +90,8 @@ pub use identities::{
 };
 pub use input::{
     ActionRequestId, ClassId, ClientAction, DEBUG_DAMAGE_Q3_RAILGUN, MENU_RESPONSE_BYTES, SpawnPick,
-    TickInput, q3_debug_fire_amount, q3_debug_fire_weapon, q3_debug_select_amount,
-    q3_debug_select_weapon,
+    TickInput, q3_debug_fire_amount, q3_debug_fire_weapon, q3_debug_give_amount,
+    q3_debug_give_weapon, q3_debug_select_amount, q3_debug_select_weapon,
     action_request_id, menu_response_field, menu_response_text,
 };
 pub use mantle_xanim::MantleXAnimBind;
