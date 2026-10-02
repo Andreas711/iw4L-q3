@@ -544,6 +544,26 @@ impl Q3WeaponRuntime {
         let ammo = self.ammo[self.weapon as usize];
         now_ms >= self.next_fire_time_ms && (!self.weapon.uses_ammo() || ammo != 0)
     }
+
+    fn to_snapshot(self) -> crate::Q3WeaponSnapshot {
+        crate::Q3WeaponSnapshot {
+            active: self.active,
+            weapon: self.weapon,
+            next_fire_time_ms: self.next_fire_time_ms,
+            owned_mask: self.owned_mask,
+            ammo: self.ammo,
+        }
+    }
+
+    fn from_snapshot(snapshot: crate::Q3WeaponSnapshot) -> Self {
+        Self {
+            weapon: snapshot.weapon,
+            next_fire_time_ms: snapshot.next_fire_time_ms,
+            active: snapshot.active,
+            owned_mask: snapshot.owned_mask,
+            ammo: snapshot.ammo,
+        }
+    }
 }
 
 #[derive(Component, Clone, Debug)]
@@ -3133,6 +3153,7 @@ impl SimState {
             .iter()
             .map(|(id, m)| {
                 let mut meta = m.to_snapshot_meta();
+                meta.q3_weapon = self.q3_weapons.get(id).copied().map(Q3WeaponRuntime::to_snapshot);
                 if meta.shield.is_some()
                     && meta.lifecycle == crate::ClientLifecycle::Alive
                     && let Some(ps) = players
@@ -3314,6 +3335,7 @@ impl SimState {
 
         let mut adopted_clients: Vec<(ClientId, ClientMatchState)> =
             Vec::with_capacity(prediction_local.map_or(snapshot.meta.clients.len(), |_| 1));
+        let mut adopted_q3 = HashMap::new();
         for (id, meta) in snapshot
             .meta
             .clients
@@ -3327,10 +3349,14 @@ impl SimState {
                 .map(|(_, m)| m.clone())
                 .unwrap_or_default();
             row.adopt_snapshot_meta(meta);
+            if let Some(q3) = meta.q3_weapon {
+                adopted_q3.insert(*id, Q3WeaponRuntime::from_snapshot(q3));
+            }
             adopted_clients.push((*id, row));
             report.clients += 1;
         }
         self.clients = adopted_clients;
+        self.q3_weapons = adopted_q3;
 
         self.entity_kernel = crate::EntityKernel::from_snapshot(&snapshot.meta.entity_kernel)
             .expect("authoritative snapshot carried an invalid EntityKernel state");
