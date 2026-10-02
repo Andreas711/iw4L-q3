@@ -1232,7 +1232,7 @@ fn phase_trace_q3_hitscan(world: &mut FrameWorld, tick: Tick, emissions: &[Emiss
             &|piece| world.world_objects().glass_is_solid(u32::from(piece)),
         );
 
-        let TraceOutcome::Hit { collider, .. } = trace else {
+        let crate::TraceOutcome::Hit { collider, .. } = trace else {
             continue;
         };
         let ColliderId::Player {
