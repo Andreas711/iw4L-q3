@@ -800,6 +800,7 @@ impl SimState {
         self.entity_collision_history.clear();
         self.lagcomp_sample.clear();
         self.lagcomp_commands.clear();
+        self.q3_weapons.clear();
         self.shot_collision_verdicts.clear();
         self.projectile_impacts.clear();
         self.projectile_impact_log.clear();
