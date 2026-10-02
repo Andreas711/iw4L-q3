@@ -24,10 +24,10 @@ pub const SELF_DAMAGE_SCALE: f32 = 0.5;
 
 #[must_use]
 pub fn knockback_velocity_delta(direction: [f32; 3], damage: i32) -> [f32; 3] {
-    let len = (direction[0] * direction[0]
+    let len_sq = direction[0] * direction[0]
         + direction[1] * direction[1]
-        + direction[2] * direction[2])
-        .sqrt();
+        + direction[2] * direction[2];
+    let len = sqrtf(len_sq);
     if len <= f32::EPSILON || damage <= 0 {
         return [0.0; 3];
     }
@@ -39,6 +39,22 @@ pub fn knockback_velocity_delta(direction: [f32; 3], damage: i32) -> [f32; 3] {
 pub fn self_damage(damage: i32) -> i32 {
     ((damage as f32) * SELF_DAMAGE_SCALE).max(1.0) as i32
 }
+
+fn sqrtf(value: f32) -> f32 {
+    if value <= 0.0 {
+        return 0.0;
+    }
+
+    // weapon_q3 is intentionally no_std. Newton-Raphson keeps this crate
+    // dependency-free while providing more than enough precision for a
+    // normalised knockback direction.
+    let mut x = if value >= 1.0 { value } else { 1.0 };
+    for _ in 0..8 {
+        x = 0.5 * (x + value / x);
+    }
+    x
+}
+
 
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
