@@ -10,8 +10,11 @@ use net::{FrameClock, LocalPresentClient, PresentedSnapshot};
 
 pub struct RenderQ3Plugin;
 
-const Q3_VIEW_TARGET_RADIUS: f32 = 1.45;
-const Q3_VIEW_DEPTH_PAD: f32 = 3.75;
+// Q3 MD3 viewmodels are authored in a much larger local unit scale than the
+// Bevy camera-space bridge. Frame them to an intentional first-person size
+// instead of shrinking them to a small world prop.
+const Q3_VIEW_TARGET_RADIUS: f32 = 6.0;
+const Q3_VIEW_NEAR_MARGIN: f32 = 0.20;
 
 #[derive(Component)]
 struct Q3ViewRoot;
@@ -157,6 +160,21 @@ fn q3_to_camera(v: [f32; 3], scale: f32) -> [f32; 3] {
     // Q3: +X forward, +Y left, +Z up.
     // Bevy camera local: +X right, +Y up, -Z forward.
     [-v[1] * scale, v[2] * scale, -v[0] * scale]
+}
+
+fn q3_front_extent(
+    model: &asset_q3::Q3WeaponModel,
+    tag: Option<&asset_q3::Md3Tag>,
+    scale: f32,
+) -> f32 {
+    model
+        .model
+        .surfaces
+        .iter()
+        .filter_map(|surface| surface.frames.first())
+        .flat_map(|vertices| vertices.iter())
+        .map(|vertex| q3_to_camera(q3_tag_point(tag, vertex.position), scale)[2])
+        .fold(0.0_f32, f32::max)
 }
 
 fn q3_surface_mesh(
@@ -326,11 +344,17 @@ fn sync_q3_view_model(
             _ => None,
         })
         .unwrap_or(2.0);
-    let depth = near + Q3_VIEW_DEPTH_PAD;
+
+    // Keep the nearest vertex just behind IW4L's near plane. This lets the
+    // weapon fill the intended part of the screen without clipping even though
+    // different Q3 guns have very different MD3 bounds.
+    let scale = q3_model_scale(model);
+    let front_extent = q3_front_extent(model, q3_tag_weapon(model), scale);
+    let depth = near + Q3_VIEW_NEAR_MARGIN + front_extent.max(0.0);
 
     root_transform.translation = Vec3::new(
-        0.95 + bob_x,
-        -0.72 - lower + bob_y,
+        1.10 + bob_x,
+        -0.90 - lower + bob_y,
         -depth + state.recoil * 0.22,
     );
     root_transform.rotation = Quat::from_rotation_x(state.recoil * 0.06);
@@ -541,5 +565,11 @@ mod tests {
         assert_eq!(q3_to_camera([1.0, 0.0, 0.0], scale), [0.0, 0.0, -scale]);
         assert_eq!(q3_to_camera([0.0, 1.0, 0.0], scale), [-scale, 0.0, 0.0]);
         assert_eq!(q3_to_camera([0.0, 0.0, 1.0], scale), [0.0, scale, 0.0]);
+    }
+
+    #[test]
+    fn q3_viewmodel_target_radius_is_first_person_sized() {
+        assert!(Q3_VIEW_TARGET_RADIUS >= 5.0);
+        assert!(Q3_VIEW_NEAR_MARGIN > 0.0);
     }
 }
