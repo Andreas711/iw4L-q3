@@ -273,7 +273,7 @@ pub(crate) fn route_debug_feature_commands(
                     if weapon == 0 {
                         "q3use: queued return to IW4 weapon handling".into()
                     } else {
-                        format!("q3use: equipped Q3 weapon={weapon}; ammo set to 200 and left click fires it")
+                        format!("q3use: equipped Q3 weapon={weapon}; unlimited debug ammo and left click fires it")
                     },
                     console,
                     line,
