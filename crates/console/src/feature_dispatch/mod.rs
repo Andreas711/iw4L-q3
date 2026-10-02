@@ -131,28 +131,55 @@ pub(crate) fn route_debug_feature_commands(
                     }
                 }
             },
-            "q3rail" => {
+            "q3rail" | "q3fire" => {
+                let weapon = if cmd.name == "q3rail" {
+                    7u8
+                } else {
+                    match cmd.args.first().map(String::as_str) {
+                        Some("machinegun" | "mg") => 2,
+                        Some("shotgun" | "sg") => 3,
+                        Some("lightning" | "lg") => 6,
+                        Some("railgun" | "rail" | "rg") => 7,
+                        Some(other) => {
+                            echo(
+                                format!("q3fire: `{other}` is not live yet; use machinegun|shotgun|lightning|railgun"),
+                                console,
+                                line,
+                            );
+                            continue;
+                        }
+                        None => {
+                            echo(
+                                "usage: q3fire machinegun|shotgun|lightning|railgun".into(),
+                                console,
+                                line,
+                            );
+                            continue;
+                        }
+                    }
+                };
                 let Some(inbox) = inbox.as_mut() else {
-                    echo("q3rail: no action inbox".into(), console, line);
+                    echo("q3fire: no action inbox".into(), console, line);
                     continue;
                 };
                 let Some(local) = local.as_ref() else {
-                    echo("q3rail: no local player".into(), console, line);
+                    echo("q3fire: no local player".into(), console, line);
+                    continue;
+                };
+                let Some(amount) = sim::q3_debug_fire_amount(weapon) else {
+                    echo("q3fire: invalid weapon id".into(), console, line);
                     continue;
                 };
                 let request_id = give_seq.allocate();
                 if let Err(error) = inbox.push(
                     local.0,
-                    ClientAction::DebugDamage {
-                        request_id,
-                        amount: sim::DEBUG_DAMAGE_Q3_RAILGUN,
-                    },
+                    ClientAction::DebugDamage { request_id, amount },
                 ) {
-                    echo(format!("q3rail: {error}"), console, line);
+                    echo(format!("q3fire: {error}"), console, line);
                     continue;
                 }
                 echo(
-                    format!("q3rail: queued Railgun shot request_id={request_id}"),
+                    format!("q3fire: queued weapon={weapon} request_id={request_id}"),
                     console,
                     line,
                 );
@@ -293,7 +320,11 @@ pub fn register_feature_commands(registry: &mut crate::ConsoleRegistry, maps: &[
         ),
         (
             "q3rail",
-            "q3rail — fire one Quake III Railgun test shot through the authority combat path",
+            "q3rail — alias for q3fire railgun",
+        ),
+        (
+            "q3fire",
+            "q3fire machinegun|shotgun|lightning|railgun — fire a live Quake III hitscan weapon",
         ),
         ("hurt", "hurt — stamp one undirected damage-feedback punch"),
         (
