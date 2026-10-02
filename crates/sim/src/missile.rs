@@ -115,6 +115,107 @@ pub(crate) fn magic_bullet(
     launched.ok_or_else(|| format!("weapon {weapon} launched no projectile"))
 }
 
+pub(crate) fn fire_q3_projectile_debug(
+    world: &mut FrameWorld,
+    tick: crate::Tick,
+    owner: crate::ClientId,
+    q3_weapon: weapon_q3::Quake3Weapon,
+) -> bool {
+    let spec = match q3_weapon {
+        weapon_q3::Quake3Weapon::GrenadeLauncher => weapon_q3::grenade::GRENADE,
+        weapon_q3::Quake3Weapon::RocketLauncher => weapon_q3::rocket::ROCKET,
+        weapon_q3::Quake3Weapon::PlasmaGun => weapon_q3::plasma::PLASMA,
+        weapon_q3::Quake3Weapon::Bfg => weapon_q3::bfg::BFG,
+        _ => return false,
+    };
+    let Some(ps) = world.player(owner).copied() else {
+        return false;
+    };
+    let is_projectile_carrier = |weapon: u32| {
+        weapon != 0
+            && world
+                .missile_launch_facts(weapon)
+                .is_some()
+    };
+    let carrier = if is_projectile_carrier(ps.weapon) {
+        Some(ps.weapon)
+    } else {
+        ps.weapons
+            .iter()
+            .copied()
+            .filter(|&weapon| weapon > 0)
+            .map(|weapon| weapon as u32)
+            .find(|&weapon| is_projectile_carrier(weapon))
+    };
+    let Some(carrier) = carrier else {
+        diag::warn!(Sim, "q3 projectile needs an owned IW4 projectile weapon as presentation carrier");
+        return false;
+    };
+
+    let (mut direction, _, _) = math_iw4::angle_vectors(ps.viewangles);
+    if matches!(q3_weapon, weapon_q3::Quake3Weapon::GrenadeLauncher) {
+        direction[2] += weapon_q3::grenade::GRENADE_VERTICAL_BIAS;
+        let len = vec3_length(direction);
+        if len > 0.0 {
+            direction = direction.map(|v| v / len);
+        }
+    }
+    let eye = [
+        ps.origin[0],
+        ps.origin[1],
+        ps.origin[2] + ps.view_height_current,
+    ];
+    let origin = core::array::from_fn(|i| eye[i] + direction[i] * 14.0);
+    let now = crate::level_time_ms(tick);
+    let velocity = truncated_tr_delta(direction.map(|v| v * spec.speed));
+    let gravity = matches!(q3_weapon, weapon_q3::Quake3Weapon::GrenadeLauncher);
+    let pos = Trajectory {
+        tr_time: now,
+        tr_type: if gravity { entity_iw4::TR_GRAVITY } else { TR_LINEAR },
+        tr_duration: 0,
+        tr_delta: velocity,
+        tr_base: origin,
+    };
+    let id = world.allocate_projectile_id();
+    let entnum = match world.allocate_dynamic_entity(crate::gentity::EntityRunKind::Missile) {
+        Ok(entity) => entity.number(),
+        Err(error) => {
+            diag::warn!(Sim, "q3 projectile not spawned: {error:?}");
+            return false;
+        }
+    };
+    let life = world
+        .client_meta(owner)
+        .map(|m| m.life_sequence)
+        .unwrap_or_default();
+    let deadline = now.saturating_add(spec.lifetime_ms.max(1));
+    let projectile = ProjectileState {
+        id,
+        owner,
+        owner_life: life,
+        weapon: carrier,
+        q3_weapon: Some(q3_weapon),
+        origin,
+        velocity,
+        pos,
+        apos: fire_missile_apos(direction),
+        entnum,
+        launch_time: now,
+        spawn_time_ms: now,
+        detonate_at_ms: Some(deadline),
+        cleanup_at_ms: deadline.saturating_add(crate::MATCH_TICK_MS as i32),
+        travel_distance: 0.0,
+        live: true,
+        stuck_pane: None,
+        grounded: false,
+        guide: crate::MissileGuide::default(),
+        attached_to: None,
+    };
+    perf::projectile(carrier);
+    world.push_projectile(projectile);
+    true
+}
+
 fn fire_missile(
     world: &mut FrameWorld,
     tick: crate::Tick,
