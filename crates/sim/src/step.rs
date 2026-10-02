@@ -918,7 +918,11 @@ fn apply_actions(world: &mut FrameWorld, tick: Tick, actions: &[(ClientId, Clien
                 request_id: _,
                 amount,
             } => {
-                apply_debug_damage(world, tick, *id, amount);
+                if amount == crate::DEBUG_DAMAGE_Q3_RAILGUN {
+                    let _ = crate::combat::fire_q3_railgun_debug(world, tick, *id);
+                } else {
+                    apply_debug_damage(world, tick, *id, amount);
+                }
             }
         }
     }
