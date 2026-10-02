@@ -245,8 +245,9 @@ fn rebuild_weapon(
             .copied()
             .unwrap_or_default();
         let alpha_mode = match blend {
-            asset_q3::Q3BlendMode::Opaque => AlphaMode::Opaque,
-            asset_q3::Q3BlendMode::Alpha => AlphaMode::Blend,
+            // Keep ordinary Q3 viewmodel surfaces in Bevy's transparent phase
+            // with alpha=1 so IW4L's exact world pass cannot paint over them.
+            asset_q3::Q3BlendMode::Opaque | asset_q3::Q3BlendMode::Alpha => AlphaMode::Blend,
             asset_q3::Q3BlendMode::Add => AlphaMode::Add,
             asset_q3::Q3BlendMode::Multiply => AlphaMode::Multiply,
         };
