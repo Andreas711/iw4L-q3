@@ -160,19 +160,19 @@ pub(crate) fn route_debug_feature_commands(
 
                 if let Some(arg) = cmd.args.first().map(String::as_str) {
                     let weapon = match arg {
-                        "gauntlet" | "melee" => Some(weapon_q3::Quake3Weapon::Gauntlet),
-                        "machinegun" | "mg" => Some(weapon_q3::Quake3Weapon::Machinegun),
-                        "shotgun" | "sg" => Some(weapon_q3::Quake3Weapon::Shotgun),
+                        "gauntlet" | "melee" => Some(sim::Quake3Weapon::Gauntlet),
+                        "machinegun" | "mg" => Some(sim::Quake3Weapon::Machinegun),
+                        "shotgun" | "sg" => Some(sim::Quake3Weapon::Shotgun),
                         "grenade" | "gl" | "grenadelauncher" => {
-                            Some(weapon_q3::Quake3Weapon::GrenadeLauncher)
+                            Some(sim::Quake3Weapon::GrenadeLauncher)
                         }
                         "rocket" | "rl" | "rocketlauncher" => {
-                            Some(weapon_q3::Quake3Weapon::RocketLauncher)
+                            Some(sim::Quake3Weapon::RocketLauncher)
                         }
-                        "lightning" | "lg" => Some(weapon_q3::Quake3Weapon::LightningGun),
-                        "railgun" | "rail" | "rg" => Some(weapon_q3::Quake3Weapon::Railgun),
-                        "plasma" | "pg" | "plasmagun" => Some(weapon_q3::Quake3Weapon::PlasmaGun),
-                        "bfg" => Some(weapon_q3::Quake3Weapon::Bfg),
+                        "lightning" | "lg" => Some(sim::Quake3Weapon::LightningGun),
+                        "railgun" | "rail" | "rg" => Some(sim::Quake3Weapon::Railgun),
+                        "plasma" | "pg" | "plasmagun" => Some(sim::Quake3Weapon::PlasmaGun),
+                        "bfg" => Some(sim::Quake3Weapon::Bfg),
                         _ => None,
                     };
                     if let Some(weapon) = weapon
