@@ -1504,6 +1504,14 @@ pub(crate) fn phase_trace(
                     && let Some(vmeta) = world.client_meta(victim)
                     && vmeta.lifecycle == ClientLifecycle::Alive
                 {
+                    if em.q3_weapon.is_some() {
+                        crate::damage::apply_q3_direct_knockback(
+                            world,
+                            victim,
+                            em.direction,
+                            scaled,
+                        );
+                    }
                     let attempt = crate::DamageAttempt {
                         splash: false,
                         source: DamageSource::Shot(em.shot_id),
