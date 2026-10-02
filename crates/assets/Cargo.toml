@@ -19,6 +19,7 @@ asset_q3.workspace = true
 asset_transport.workspace = true
 asset_world.workspace = true
 weapon_iw4.workspace = true
+weapon_q3.workspace = true
 fastfile_iw4.workspace = true
 fastfile_t5.workspace = true
 fastfile_iw5.workspace = true
