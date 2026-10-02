@@ -193,9 +193,14 @@ pub(crate) fn route_debug_feature_commands(
                                 .and_then(|texture| texture.as_ref())
                                 .map(|texture| texture.path.as_str())
                                 .unwrap_or("<unresolved>");
+                            let blend = model
+                                .surface_blends
+                                .get(index)
+                                .copied()
+                                .unwrap_or_default();
                             echo(
                                 format!(
-                                    "q3assets: {} surface#{index} {} shader={} texture={}",
+                                    "q3assets: {} surface#{index} {} shader={} texture={} blend={blend:?}",
                                     weapon.name(),
                                     surface.name,
                                     shader,
