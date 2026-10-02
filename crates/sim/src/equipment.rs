@@ -1355,7 +1355,7 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
     if resolves_damage {
         for (projectile, target) in direct_hits {
             let facts = projectile_runtime_facts(world, &projectile);
-            let Some(target_meta) = world.client_meta(target) else {
+            let Some(target_life) = world.client_meta(target).map(|meta| meta.life_sequence) else {
                 continue;
             };
             if projectile.q3_weapon.is_some() {
@@ -1373,7 +1373,7 @@ pub(crate) fn think_projectile(world: &mut FrameWorld, tick: Tick, entnum: i32) 
                 attacker: projectile.owner,
                 attacker_life: projectile.owner_life,
                 target,
-                target_life: target_meta.life_sequence,
+                target_life,
                 weapon: projectile.weapon,
                 amount: facts.impact_damage.max(0),
                 killcam_entity_start_time: projectile_birth_ms(&projectile),
