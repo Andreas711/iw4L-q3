@@ -6,7 +6,16 @@
 // IW4L's `sim` crate remains authoritative for input ownership, lag
 // compensation, collision, damage application, snapshots and replay.
 
+pub mod bfg;
+pub mod gauntlet;
+pub mod grenade;
+pub mod lightning;
+pub mod machinegun;
+pub mod plasma;
 pub mod railgun;
+pub mod rocket;
+pub mod shotgun;
+pub mod spec;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
