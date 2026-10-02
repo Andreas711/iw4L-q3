@@ -148,8 +148,10 @@ pub(crate) fn route_debug_feature_commands(
                     .unwrap_or_else(|| "<not configured>".to_owned());
                 echo(
                     format!(
-                        "q3assets: source={source} loaded={} missing={}",
+                        "q3assets: source={source} models={} textures={}/{} missing={}",
                         q3_assets.assets.loaded_count(),
+                        q3_assets.assets.texture_count(),
+                        q3_assets.assets.surface_count(),
                         q3_assets.assets.missing.len()
                     ),
                     console,
