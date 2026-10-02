@@ -1040,20 +1040,20 @@ pub fn spread_direction_on_plane(
     }
 }
 
-/// Fire a Quake III weapon through IW4L's authoritative combat path.
+/// Fire a Quake III weapon through the Q3 gameplay path.
 ///
-/// Hitscan weapons are live here. Projectile and melee weapons remain explicit
-/// future branches rather than silently borrowing MW2 weapon behaviour.
-pub(crate) fn fire_q3_weapon_debug(
+/// This path shares IW4L's world/collision authority, but it does not require
+/// an IW4 weapon definition. Q3 inventory, timing, damage and projectile rules
+/// are authoritative here.
+pub(crate) fn fire_q3_weapon(
     world: &mut FrameWorld,
     tick: Tick,
     id: ClientId,
     weapon_id: u8,
 ) -> bool {
-    if !world.bootstrap_ref().allow_debug_actions
-        || !world
-            .client_meta(id)
-            .is_some_and(|m| m.lifecycle == ClientLifecycle::Alive)
+    if !world
+        .client_meta(id)
+        .is_some_and(|m| m.lifecycle == ClientLifecycle::Alive)
     {
         return false;
     }
@@ -1078,11 +1078,11 @@ pub(crate) fn fire_q3_weapon_debug(
             | weapon_q3::Quake3Weapon::PlasmaGun
             | weapon_q3::Quake3Weapon::Bfg
     ) {
-        return crate::missile::fire_q3_projectile_debug(world, tick, id, q3_weapon);
+        return crate::missile::fire_q3_projectile(world, tick, id, q3_weapon);
     }
 
     if q3_weapon == weapon_q3::Quake3Weapon::Gauntlet {
-        return fire_q3_gauntlet_debug(world, tick, id);
+        return fire_q3_gauntlet(world, tick, id);
     }
     if q3_weapon == weapon_q3::Quake3Weapon::Railgun {
         return fire_q3_railgun_piercing(world, tick, id);
@@ -1097,31 +1097,6 @@ pub(crate) fn fire_q3_weapon_debug(
     };
 
     let Some(ps) = world.player(id).copied() else {
-        return false;
-    };
-
-    // Q3 behaviour supplies damage/range/spread. Until Q3 presentation assets
-    // land, an owned IW4 bullet weapon is used only for impact/event metadata.
-    let is_bullet = |weapon: u32| {
-        weapon != 0
-            && world.combat_facts_for(weapon).is_some_and(|facts| {
-                matches!(
-                    fire_weapon_kind(facts.weap_type, facts.weap_class),
-                    Some(FireWeaponKind::Bullet)
-                )
-            })
-    };
-    let carrier = if is_bullet(ps.weapon) {
-        Some(ps.weapon)
-    } else {
-        ps.weapons
-            .iter()
-            .copied()
-            .filter(|&weapon| weapon > 0)
-            .map(|weapon| weapon as u32)
-            .find(|&weapon| is_bullet(weapon))
-    };
-    let Some(carrier) = carrier else {
         return false;
     };
 
@@ -1140,23 +1115,6 @@ pub(crate) fn fire_q3_weapon_debug(
         ps.origin[2] + ps.view_height_current,
     ];
     let origin = core::array::from_fn(|i| eye[i] + forward[i] * 14.0);
-
-    world.push_entity_event(
-        tick,
-        EventAudience::All,
-        entity_iw4::predicted_weapon_fire_event(0, false),
-        crate::EntityEventPayload {
-            number: id.0 as i32,
-            weapon: carrier,
-            correlation: shot_id.0,
-            origin,
-            direction: ps.viewangles,
-            ..Default::default()
-        },
-    );
-    world
-        .weapon_notes
-        .push(crate::equipment::WeaponNote::Fired { owner: id });
 
     let mut rng = MatchRng::new(combat_seed as u64);
     let signed = |rng: &mut MatchRng| {
@@ -1194,7 +1152,7 @@ pub(crate) fn fire_q3_weapon_debug(
             attacker: id,
             attacker_life: life,
             hand: 0,
-            weapon: carrier,
+            weapon: 0,
             q3_weapon: Some(q3_weapon),
             origin,
             direction,
@@ -1281,21 +1239,6 @@ fn fire_q3_railgun_piercing(world: &mut FrameWorld, tick: Tick, id: ClientId) ->
     let Some(ps) = world.player(id).copied() else {
         return false;
     };
-    let carrier = ps
-        .weapons
-        .iter()
-        .copied()
-        .filter(|&weapon| weapon > 0)
-        .map(|weapon| weapon as u32)
-        .find(|&weapon| world.combat_facts_for(weapon).is_some())
-        .or_else(|| {
-            (1..world.weapon_combat_len() as u32)
-                .find(|&weapon| world.combat_facts_for(weapon).is_some())
-        });
-    let Some(carrier) = carrier else {
-        return false;
-    };
-
     let life = world
         .client_meta(id)
         .map(|m| m.life_sequence)
@@ -1314,20 +1257,6 @@ fn fire_q3_railgun_piercing(world: &mut FrameWorld, tick: Tick, id: ClientId) ->
     let lag = world.lagcomp_query_for(id, tick);
     let mut start = origin;
     let mut ignore_hit = None;
-
-    world.push_entity_event(
-        tick,
-        EventAudience::All,
-        entity_iw4::predicted_weapon_fire_event(0, false),
-        crate::EntityEventPayload {
-            number: id.0 as i32,
-            weapon: carrier,
-            correlation: shot_id.0,
-            origin,
-            direction: ps.viewangles,
-            ..Default::default()
-        },
-    );
 
     for pellet in 0..4u16 {
         let trace = bullet_trace_with_entity_models(
@@ -1385,7 +1314,7 @@ fn fire_q3_railgun_piercing(world: &mut FrameWorld, tick: Tick, id: ClientId) ->
                 attacker_life: life,
                 target: victim,
                 target_life: victim_life,
-                weapon: carrier,
+                weapon: 0,
                 amount: weapon_q3::railgun::RAILGUN_DAMAGE,
                 killcam_entity_start_time: 0,
                 inflictor_origin: None,
@@ -1401,19 +1330,8 @@ fn fire_q3_railgun_piercing(world: &mut FrameWorld, tick: Tick, id: ClientId) ->
     true
 }
 
-fn fire_q3_gauntlet_debug(world: &mut FrameWorld, tick: Tick, id: ClientId) -> bool {
+fn fire_q3_gauntlet(world: &mut FrameWorld, tick: Tick, id: ClientId) -> bool {
     let Some(ps) = world.player(id).copied() else {
-        return false;
-    };
-    let carrier = ps
-        .weapons
-        .iter()
-        .copied()
-        .filter(|&weapon| weapon > 0)
-        .map(|weapon| weapon as u32)
-        .find(|&weapon| world.combat_facts_for(weapon).is_some())
-        .or_else(|| (1..world.weapon_combat_len() as u32).find(|&weapon| world.combat_facts_for(weapon).is_some()));
-    let Some(carrier) = carrier else {
         return false;
     };
     let life = world
@@ -1436,7 +1354,7 @@ fn fire_q3_gauntlet_debug(world: &mut FrameWorld, tick: Tick, id: ClientId) -> b
         attacker: id,
         attacker_life: life,
         hand: 0,
-        weapon: carrier,
+        weapon: 0,
         q3_weapon: Some(weapon_q3::Quake3Weapon::Gauntlet),
         origin,
         direction,
