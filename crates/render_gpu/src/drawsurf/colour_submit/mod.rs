@@ -4,7 +4,7 @@ use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::Instant;
 
-use bevy::core_pipeline::core_3d::main_opaque_pass_3d;
+use bevy::core_pipeline::core_3d::{main_opaque_pass_3d, main_transparent_pass_3d};
 use bevy::core_pipeline::upscaling::ViewUpscalingPipeline;
 use bevy::core_pipeline::{Core3d, Core3dSystems};
 use bevy::mesh::VertexBufferLayout;
@@ -6760,7 +6760,8 @@ pub(super) fn register(app: &mut App) {
                 record::draw_exact_colour
                     .in_set(Core3dSystems::MainPass)
                     .in_set(super::draw::ExactColourDrawSet)
-                    .after(main_opaque_pass_3d),
+                    .after(main_opaque_pass_3d)
+                    .before(main_transparent_pass_3d),
                 record::copy_submit_prepare_ms.after(super::draw::ExactColourDrawSet),
             ),
         );
