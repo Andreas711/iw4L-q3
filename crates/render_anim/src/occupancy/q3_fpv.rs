@@ -208,8 +208,12 @@ pub(crate) fn override_q3_fpv(
     plan.plan_draw_n = Some(plan.draws.len() as u32);
     plan.plan_skip_n = Some(0);
     plan.geometry_ok = true;
-    plan.revisions
-        .set_topology_from(&plan.indices, &plan.surface_ranges, plan.decoded_n);
+    let topology = {
+        let mut revisions = render_frame::SourceRevisions::default();
+        revisions.set_topology_from(&plan.indices, &plan.surface_ranges, plan.decoded_n);
+        revisions.topology
+    };
+    plan.revisions.topology = topology;
     plan.revisions.bump_vertices();
     plan.revisions.bump_draws();
     plan.revision = plan.revision.wrapping_add(1);
